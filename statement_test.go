@@ -42,7 +42,7 @@ func ExampleTrx_Insert() {
 
 } 
 
-func ExampleUpdStatement_Update() {
+func ExampleupdStatement_Update() {
 	db := goflat.NewConnector()
 	session, err := db.Connect("test", "user/pasword")
 	if err != nil {
