@@ -208,7 +208,6 @@ func (b *basicFlatFile) load() error {
 	if err != nil && err != io.EOF {
 		return feedErr(err, 4)
 	}
-	fmt.Printf("load len: %v\n", len(b.data))
 	return nil
 }
 func (b *basicFlatFile) store() error {
