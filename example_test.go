@@ -13,23 +13,6 @@ var (
 	fkErr = errors.New("foreign key error")
 )
 
-func Example_second() {
-	db := goflat.NewConnector()
-	session, err := db.Connect("test", "user/pasword")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Disconnect()
-
-	if err = session.Transaction(func(tr goflat.Trx) error {
-		data, err := tr.Select().Where(goflat.KeyTerm("id").Equal(goflat.IntTerm(int64(5)))).AllRows()
-		_ = data			
-		return err
-	}); err != nil {
-		log.Print(err)
-	}
-}
-
 func Example() {
 	db := goflat.NewConnector()
 	session, err := db.Connect("test", "user/pasword")
