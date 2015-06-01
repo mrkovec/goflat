@@ -26,7 +26,9 @@ type Trx interface {
 
 // A key:value data set
 type Set map[Key]Value
+
 // A key in a key:value data set
 type Key string
+
 // A value in a key:value data set
 type Value interface{}

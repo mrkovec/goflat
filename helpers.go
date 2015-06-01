@@ -192,7 +192,7 @@ func (o StatementType) String() string {
 type byteSize float64
 
 const (
-	_           = iota // ignore first value by assigning to blank identifier
+	_            = iota // ignore first value by assigning to blank identifier
 	bKB byteSize = 1 << (10 * iota)
 	bMB
 	bGB

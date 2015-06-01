@@ -375,21 +375,21 @@ func (b *basicFlatFile) unlock() (err error) {
 }
 
 const (
-	BOOL_PFX   byte = byte('o')
-	INT_PFX    byte = byte('i')
-	FLOAT_PFX  byte = byte('f')
-	STRING_PFX byte = byte('s')
-	TIME_PFX   byte = byte('t')
-	BYTE_PFX   byte = byte('b')
+	bool_PFX   byte = byte('o')
+	int_PFX    byte = byte('i')
+	float_PFX  byte = byte('f')
+	string_PFX byte = byte('s')
+	time_PFX   byte = byte('t')
+	byte_PFX   byte = byte('b')
 )
 
 func encodeValue(val interface{}) ([]byte, error) {
 	switch r := val.(type) {
 	case bool:
 		if r {
-			return []byte{BOOL_PFX, 'T'}, nil
+			return []byte{bool_PFX, 'T'}, nil
 		}
-		return []byte{BOOL_PFX, 'F'}, nil
+		return []byte{bool_PFX, 'F'}, nil
 	case int64:
 		buf := new(bytes.Buffer)
 		err := binary.Write(buf, binary.LittleEndian, r)
@@ -397,7 +397,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 			return nil, err
 		}
 		n := make([]byte, len(buf.Bytes())+1)
-		n[0] = INT_PFX
+		n[0] = int_PFX
 		copy(n[1:], buf.Bytes())
 		return n, nil
 	case float64:
@@ -407,7 +407,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 			return nil, err
 		}
 		n := make([]byte, len(buf.Bytes())+1)
-		n[0] = FLOAT_PFX
+		n[0] = float_PFX
 		copy(n[1:], buf.Bytes())
 		return n, nil
 	case string:
@@ -415,19 +415,19 @@ func encodeValue(val interface{}) ([]byte, error) {
 		n[0] = STRING_PFX
 		copy(n[1:], []byte(r))*/
 		//return []byte{STRING_PFX, []byte(r)...}, nil
-		return append([]byte{STRING_PFX}, []byte(r)...), nil
+		return append([]byte{string_PFX}, []byte(r)...), nil
 	case time.Time:
 		b, err := r.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
 		n := make([]byte, len(b)+1)
-		n[0] = TIME_PFX
+		n[0] = time_PFX
 		copy(n[1:], b)
 		return n, nil
 	case []byte:
 		n := make([]byte, len(r)+1)
-		n[0] = BYTE_PFX
+		n[0] = byte_PFX
 		copy(n[1:], r)
 		return n, nil
 	default:
@@ -465,12 +465,12 @@ func (b *basicFlatFile) encodeData(r ...Set) error {
 
 func decodeValue(c []byte) (interface{}, error) {
 	switch c[0] {
-	case BOOL_PFX:
+	case bool_PFX:
 		if c[1] == 'T' {
 			return true, nil
 		}
 		return false, nil
-	case INT_PFX:
+	case int_PFX:
 		var in int64
 		buf := bytes.NewReader(c[1:])
 		err := binary.Read(buf, binary.LittleEndian, &in)
@@ -478,7 +478,7 @@ func decodeValue(c []byte) (interface{}, error) {
 			return nil, fmt.Errorf("cannot convert value to int64: %v", err)
 		}
 		return in, nil
-	case FLOAT_PFX:
+	case float_PFX:
 		var fl float64
 		buf := bytes.NewReader(c[1:])
 		err := binary.Read(buf, binary.LittleEndian, &fl)
@@ -486,15 +486,15 @@ func decodeValue(c []byte) (interface{}, error) {
 			return nil, fmt.Errorf("cannot convert value to float64: %v", err)
 		}
 		return fl, nil
-	case STRING_PFX:
+	case string_PFX:
 		return string(c[1:]), nil
-	case TIME_PFX:
+	case time_PFX:
 		var t time.Time
 		if err := t.UnmarshalBinary(c[1:]); err != nil {
 			return nil, fmt.Errorf("cannot convert value to time: %v", err)
 		}
 		return t, nil
-	case BYTE_PFX:
+	case byte_PFX:
 		return c[1:], nil
 	default:
 		return nil, fmt.Errorf("unknown value type")
