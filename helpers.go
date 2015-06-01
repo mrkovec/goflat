@@ -57,6 +57,15 @@ func (r *recDec) unmarshalAll() (Set, error) {
 	return decodeSet(r.data)
 }
 
+func (s Set) unmarshal(key Key) (interface{}, error) {
+	v, _ := s[key] 
+	return v, nil
+}
+func (s Set) unmarshalAll() (Set, error) {
+	return s, nil
+}
+
+
 /*type drec struct {
 	b     *basicFlatFile
 	data  map[uint][]byte

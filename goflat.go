@@ -4,9 +4,7 @@ package goflat
 type Connector interface {
 	Connect(db, user string) (Session, error)
 	Disconnect() error
-
-	CreateView(name, query string) error
-	CreateTrigger(name, def string, f TriggerFunc) error
+ 
 }
 
 // Connector mediates basic database functionality
@@ -24,11 +22,14 @@ type Session interface {
 // Trx is a single ACID transaction descriptor
 type Trx interface {
 	// Inserts records into database
-	Insert(...Set) error
+	Insert() *insStatement
 	// Runs a sellect query from provided view
-	Select(viewName string, args ...Value) ([]Set, error)
-	//
-	//Update(viewName string, args ...Value, ) error
+	Select() *selStatement
+	Update() *updStatement
+	Delete() *delStatement 
+	//Select(viewName string, args ...Value) ([]Set, error)
+	// Updates records selected by view to 
+	//Update(viewName string, args ...Value, set Set) (int, error)
 }
 
 type Key string

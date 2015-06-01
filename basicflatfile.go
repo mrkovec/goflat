@@ -109,8 +109,7 @@ type basicFlatFile struct {
 type connector struct {
 	sync.RWMutex	
 	ses *basicFlatFile
-	viewIndex map[string]*View	
-	triggerIndex map[string]map[trigType]map[StatementType][]*Trigger
+ 
 
 }
 func NewConnector() Connector {
@@ -178,92 +177,7 @@ func (c *connector) Disconnect() error {
 	c.ses = nil
 	return nil
 }
-
-func (c *connector) CreateView(name, query string) error {
-	name, err := sanitizeQuery(name)
-	if err != nil {
-		return feedErr(err, 1)
-	}
-	
-	c.Lock()
-	defer c.Unlock()
-
-	if c.viewIndex == nil {
-		c.viewIndex = make(map[string]*View)
-	}
-	if _, e := c.viewIndex[name]; e {
-		return fmt.Errorf("view \"%v\" already exists", name)
-	} 
-	c.viewIndex[name] = newView(name, query)
-	return nil
-}
-
-func (c *connector) view(viewName string) (*View, error) {
-	c.RLock()
-	defer c.RUnlock()
-
-	v, e := c.viewIndex[viewName]
-	if !e {
-		return nil, fmt.Errorf("not existing view %v", viewName)
-	}
-	return v, nil
-}
-
-func (c *connector) CreateTrigger(name, def string, f TriggerFunc) error {
-
-	t, err := newTrigger(name, def, f)
-	if err != nil {
-		return feedErr(err,1)
-	}
-	c.Lock()
-	defer c.Unlock()
-	if c.triggerIndex == nil {
-		c.triggerIndex = make(map[string]map[trigType]map[StatementType][]*Trigger)
-	}
-	if _, e := c.triggerIndex[t.on]; !e {
-		c.triggerIndex[t.on] = make(map[trigType]map[StatementType][]*Trigger)
-	}
-	if _, e := c.triggerIndex[t.on][t.when]; !e {
-			c.triggerIndex[t.on][t.when] = make(map[StatementType][]*Trigger)
-	}
-	if c.triggerIndex[t.on][t.when][t.statement] == nil {
-		c.triggerIndex[t.on][t.when][t.statement] = make([]*Trigger,0,4)
-	}
-	c.triggerIndex[t.on][t.when][t.statement] = append(c.triggerIndex[t.on][t.when][t.statement], t)
-	return nil
-}
-func (c *connector) runTriggers(on string, when trigType, statement StatementType, r ...Set) error {
-	c.RLock()
-	ts, e := c.triggerIndex[on][when][statement]
-	if !e {
-		c.RUnlock()
-		return nil
-	}
-	c.RUnlock()
-
-	
-	for _, t := range ts {
-		f := t.f
-
-		t.Lock()
-		defer t.Unlock()
-		if t.enabled {
-			if t.forEachRow {
-				
-				for _, nr := range r {
-					err := f(c.ses, nr, nr)
-					if err != nil {
-						return err
-					}
-				}
-				
-			} else {
-				return f(c.ses, nil, nil)
-			}
-		}
-	}
-	return  nil
-}
+ 
 // satisfy Session interface
 
 func (b *basicFlatFile) load() error {
@@ -294,7 +208,7 @@ func (b *basicFlatFile) load() error {
 	if err != nil && err != io.EOF {
 		return feedErr(err, 4)
 	}
-	
+	fmt.Printf("load len: %v\n", len(b.data))
 	return nil
 }
 func (b *basicFlatFile) store() error {
@@ -581,10 +495,18 @@ func decodeValue(c []byte) (interface{}, error) {
 			return nil, fmt.Errorf("cannot convert value to float64: %v", err)
 		}
 		return fl, nil
+	case STRING_PFX:		
+		return string(c[1:]), nil
+	case TIME_PFX:		
+		var t time.Time
+		if err:= t.UnmarshalBinary(c[1:]); err != nil {
+			return nil, fmt.Errorf("cannot convert value to time: %v", err)
+		}
+		return t, nil
 	case BYTE_PFX:
 		return c[1:], nil
 	default:
-		return string(c[1:]), nil
+		return nil, fmt.Errorf("unknown value type")
 	}
 }
 func decodeSet(s [][]byte) (Set, error) {
@@ -601,7 +523,7 @@ func decodeSet(s [][]byte) (Set, error) {
 	return n, nil
 }
 
-
+ 
 /*func (b *basicFlatFile) decodeData(r ...RecordSet) error {
 
 	for _, d := range r {

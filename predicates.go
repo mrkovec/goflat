@@ -1,364 +1,569 @@
 package goflat
 
 import (
-	"errors"
-	"fmt"
-	"strconv"
-	"strings"
-	//"time"
+	//"fmt"
+    "time"
+    "strings"
 )
+ 
+type term struct {
+    val interface{}
+} 
+func BoolTerm(i bool) *term {
+    return &term{val:i}
+}
+func IntTerm(i int64) *term {
+    return &term{val:i}
+}
+func FloatTerm(i float64) *term {
+    return &term{val:i}
+}
+func StringTerm(i string) *term {
+    return &term{val:i}
+}
+func TimeTerm(i time.Time) *term {
+    return &term{val:i}
+}
+func KeyTerm(k interface{}) *term {
+    switch vk := k.(type) {
+    case string:
+        return &term{val:Key(vk)}
+    case Key:
+        return &term{val:vk}
+    }
+    return nil
+}
 
-var (
-	nothingToParse = errors.New("nothing to parse")
-)
-
-const ILL_CHARS string = "'\"()[]{},;?!*"
-
-type operation int
-
-const (
-	UNSUPORTED operation = iota
-	EQUAL
-	NOTEQUAL
-	GREATER
-	LESS
-	GREATEREQUAL
-	LESSEQUAL
-	IN
-	AND
-	OR
-	NOT
-	EXISTS
-)
-
+func (a *term) Equal(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_eq}
+}
+func (a *term) NotEqual(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_neq}
+}
+func (a *term) Greater(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_gr}
+}
+func (a *term) GreaterEqual(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_greq}
+}
+func (a *term) Less(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_ls}
+}
+func (a *term) LessEqual(b *term) *predicate {
+    return &predicate{a:a, b:b, f:f_lseq}
+}
+func (a *term) Null() *predicate {
+    return &predicate{a:a, b:nil, f:f_nil}
+}
+func (a *term) NotNull() *predicate {
+    return &predicate{a:a, b:nil, f:f_nnil}
+}
+ 
 
 type predicate struct {
-	op operation
-	A  term
-	B  term
+    a *term
+    b *term
+    f func(*term, *term, kvUnmarsh) interface{}
+}
+
+func (a *predicate) And(b *predicate) *predicate {
+    return &predicate{a:&term{val:a}, b:&term{val:b}, f:f_a}
+}
+func (a *predicate) Or(b *predicate) *predicate {
+    return &predicate{a:&term{val:a}, b:&term{val:b}, f:f_o}
+}
+
+func Not(b *predicate) *predicate {
+    return &predicate{a:nil, b:&term{val:b}, f:f_n}
 }
 
 
 
-func (p *predicate) evaluate(r kvUnmarsh) (bool, error) {
-	var (
-		a, b, result bool
-		err error
-	)
-	//fmt.Printf("A:%v B:%v => %v\n", p.A, p.B, r.UnmarshalAll())
-	switch p.op {
-	case AND:
-		a, err = p.A.predicate().evaluate(r)
-		if err != nil {return false, err}
-		if a {
-			b, err = p.B.predicate().evaluate(r)
-			if err != nil {return false, err}
-			result = a && b
-		} else {
-			result = false
-		}
-	case OR:
-		a, err = p.A.predicate().evaluate(r)
-		if err != nil {return false, err}
-		if !a {
-			b, err = p.B.predicate().evaluate(r)
-			if err != nil {return false, err}
-			result = b
-		} else {
-			result = true
-		}
-		//result = p.A.predicate().evaluate(r) || p.B.predicate().evaluate(r)
-	case NOT:
-		b, err = p.B.predicate().evaluate(r)
-		if err != nil {return false, err}		
-		result = !b
-		//result = !p.B.predicate().evaluate(r)
-	case EXISTS:
+func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
 
-	case EQUAL:
-		result, err = p.A.equal(p.B, r)
-		if err != nil {return false, err}
-	case NOTEQUAL:
-		result, err = p.A.notequal(p.B, r)
-		if err != nil {return false, err}
-	case GREATER:
-		result, err = p.A.greater(p.B, r)
-		if err != nil {return false, err}
-	case LESS:
-		result, err = p.A.less(p.B, r)
-		if err != nil {return false, err}
-	case GREATEREQUAL:
-		a, err = p.A.greater(p.B, r)
-		if err != nil {return false, err}
-		if !a { 
-			b, err = p.A.equal(p.B, r)
-			if err != nil {return false, err}		
-			result = b
-		} else {
-			result = false
-		}
-		//result = p.A.greaterequal(p.B, r)
-	case LESSEQUAL:
-		a, err = p.A.less(p.B, r)
-		if err != nil {return false, err}
-		if !a { 
-			b, err = p.A.equal(p.B, r)
-			if err != nil {return false, err}		
-			result = b
-		} else {
-			result = false
-		}		
-		//result = p.A.lessequal(p.B, r)
-	default:
-		result = false
-	}
-	return result, nil
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_eq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_eq(a, c, d)
+        }
+
+        switch va := a.val.(type) {
+        case bool:
+            switch vb := b.val.(type) {
+            case bool:
+                return va == vb
+            default:
+                return nil
+            }
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va == vb
+            case float64:
+                return float64(va) == vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va == float64(vb)
+            case float64:
+                return va == vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                //UTF-8 strings, are equal under Unicode case-folding.
+                return strings.EqualFold(va, vb) 
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return va.Equal(vb)
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
 }
 
-func parsePredicate(s string) (*predicate, error) {
-	//fmt.Printf("parsePredicate: %s\n", s)
-	s = strings.Trim(s, " ")
-	if s == "" {
-		return nil, nothingToParse
-	}
-	p := &predicate{}
-	var err error
+func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
 
-	a, b := splitPredicate2(s, "or")
-	if a != "" {
-		p.op = OR
-		tp, err := parsePredicate(a)
-		if err != nil {
-			return nil, feedErr(err, 1)
-		}
-		p.A = newPredicateTerm(tp)
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_neq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_neq(a, c, d)
+        }
 
-		tp, err = parsePredicate(b)
-		if err != nil {
-			return nil, feedErr(err, 2)
-		}
-		p.B = newPredicateTerm(tp)
-		return p, nil
-
-	}
-	a, b = splitPredicate2(s, "and")
-	if a != "" {
-		p.op = AND
-		tp, err := parsePredicate(a)
-		if err != nil {
-			return nil, feedErr(err, 3)
-		}
-		p.A = newPredicateTerm(tp)
-
-		tp, err = parsePredicate(b)
-		if err != nil {
-			return nil, feedErr(err, 4)
-		}
-		p.B = newPredicateTerm(tp)
-		return p, nil
-	}
-
-	a, b = splitPredicate2(s, "not")
-	if b != "" {
-		p.op = NOT
-		p.A = nil
-		tp, err := parsePredicate(b)
-		if err != nil {
-			return nil, feedErr(err, 5)
-		}
-		p.B = newPredicateTerm(tp)
-		return p, nil
-	}
-
-	if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") && strings.Count(s, "(") == strings.Count(s, ")") {
-		p, err = parsePredicate(strings.Trim(s, "()"))
-		if err != nil {
-			return nil, feedErr(err, 6)
-		}
-		return p, nil
-	}
-	//fmt.Printf("= [%s]\n", s)
-	var spl []string
-	if strings.Contains(s, "exists") {
-	
-	} else if strings.Contains(s, "=") {
-		if strings.Contains(s, "!=") {
-			spl = strings.Split(s, "!=")
-			p.op = NOTEQUAL
-		} else if strings.Contains(s, ">=") {
-			spl = strings.Split(s, ">=")
-			p.op = GREATEREQUAL
-		} else {
-			spl = strings.Split(s, "=")
-			p.op = EQUAL
-		}
-	} else if strings.Contains(s, ">") {
-		spl = strings.Split(s, ">")
-		p.op = GREATER
-
-	} else if strings.Contains(s, "<") {
-		spl = strings.Split(s, "<")
-		p.op = LESS
-	}
-
-	if len(spl) != 2 {
-		return nil, fmt.Errorf("Syntax error in: %s", s)
-	}
-
-	p.A, err = convertTermType(spl[0])
-	if err != nil {
-		return nil, feedErr(err, 7)
-	}
-	p.B, err = convertTermType(spl[1])
-	if err != nil {
-		return nil, feedErr(err, 8)
-	}
-	//fmt.Printf("%v\n", p)
-	return p, nil
+        switch va := a.val.(type) {
+        case bool:
+            switch vb := b.val.(type) {
+            case bool:
+                return va != vb
+            default:
+                return nil
+            }
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va != vb
+            case float64:
+                return float64(va) != vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va != float64(vb)
+            case float64:
+                return va != vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                return !strings.EqualFold(va, vb) 
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return !va.Equal(vb)
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
 }
 
-func convertTermType(a string) (term, error) {
-	a = strings.TrimSpace(a)
-	if (strings.HasPrefix(a, "\"") || strings.HasPrefix(a, "'")) && (strings.HasSuffix(a, "\"") || strings.HasSuffix(a, "'")) { //strings.Contains(a, "\"") || strings.Contains(a, "'") {
-		//string
-		return newTextTerm(strings.Trim(a, "\"'")), nil
-	}
+func f_gr(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
 
-	//boolean
-	if a == "true" {
-		return newBooleanTerm(true), nil
-	}
-	if a == "false" {
-		return newBooleanTerm(false), nil
-	}
-	//number?
-	i, err := strconv.ParseInt(a, 10, 64)
-	if err == nil {
-		//f := float64(i)
-		return newIntegerTerm(i), nil
-	}
-	f, err := strconv.ParseFloat(a, 64)
-	if err == nil {
-		return newFloatTerm(f), nil
-	}
-	
-	if len(a) == 0 {
-		return nil, fmt.Errorf("zero length of parameter: %s", a)
-	}	
-	if strings.ContainsAny(a, ILL_CHARS) {
-		return nil, fmt.Errorf("illagal character in field name or sytax error in: %s", a)
-	}
-	return newKeyTerm(strings.ToLower(a)), nil
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_eq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_eq(a, c, d)
+        }
+
+        switch va := a.val.(type) {
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va > vb
+            case float64:
+                return float64(va) > vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va > float64(vb)
+            case float64:
+                return va > vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                //lexically bytewise greater than
+                return va > vb
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return va.After(vb)
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
+}
+func f_greq(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
+
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_eq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_eq(a, c, d)
+        }
+
+        switch va := a.val.(type) {
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va >= vb
+            case float64:
+                return float64(va) >= vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va >= float64(vb)
+            case float64:
+                return va >= vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                //lexically bytewise greater than
+                return va >= vb
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return va.After(vb) || va.Equal(vb)
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
 }
 
-func splitPredicate2(b string, s string) (string, string) {
-	//var nest = make(map[string]string)
-	//var output string
-	var nlp, nrp int = 0, 0
-	//var ops, ope int = -1, -1
-	var ops, ope int = -1, -1
-	//var numnest int = 0
-	/*if !utf8.Valid(b) {
-		return nil, fmt.Errorf("Not valid utf-8 text")
-	}*/
-	var parenthesis bool = false
-	var text bool = false
-	var word bool = false
+func f_ls(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
 
-	for i, r := range b {
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_eq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_eq(a, c, d)
+        }
 
-		if !parenthesis && !text && r == '(' {
-			parenthesis = true
-			//nlp++
-		}
-
-		if !parenthesis {
-			if r == '\'' || r == '\u0022' {
-				if !text {
-					text = true
-				} else {
-					text = false
-				}
-			}
-		}
-
-		if parenthesis {
-			if r == '(' {
-				nlp++
-			}
-			if r == ')' {
-				nrp++
-			}
-			if nlp == nrp {
-				parenthesis = false
-				nlp, nrp = 0, 0
-			}
-		}
-
-		if !parenthesis && !text {
-			if r != ' ' && r != '(' && r != ')' && r != '\'' && r != '\u0022' {
-				if !word {
-					word = true
-					ops = i
-				}
-			} else {
-				if word {
-					word = false
-					ope = i
-				}
-			}
-		} else {
-			if word {
-				word = false
-				ope = i
-			}
-		}
-
-		//fmt.Printf("%v %c - %v %v %v (%v:%v)\n",i, r, parenthesis, text, word, ops, ope)
-
-		if ops >= 0 && ope > 0 {
-			//fmt.Printf("%v - (%v:%v)(%s) [%s][%s]\n", i, ops, ope, b[ops:ope] , b[:ops], b[ope:])
-			if strings.Contains(strings.ToLower(b[ops:ope]), strings.ToLower(s)) {
-				return b[:ops], b[ope:]
-			}
-			ops, ope = -1, -1
-			word = false
-		}
-	}
-	return "", ""
+        switch va := a.val.(type) {
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va < vb
+            case float64:
+                return float64(va) < vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va < float64(vb)
+            case float64:
+                return va < vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                //lexically bytewise greater than
+                return va < vb
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return va.Before(vb) 
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
 }
 
-/*func (p *predicate) explain(i int) string {
-	var a, b string
-	oddel := strings.Repeat(" ", i)
-	i = i + 2
-	if p.op != NOT {
-		if p.A.typeof() == PREDICATE {
-			a = oddel + "[\n" + p.A.predicate().explain(i) + "\n" + oddel + "]\n"
-		} else {
-			//a = oddel + "" + fmt.Sprintf("%T:%v", p.A, p.A)+ "\n"
-			a = fmt.Sprintf("%s%v\n", oddel, p.A)
-		}
-	}
-	if p.B.typeof() == PREDICATE {
-		b = oddel + "[\n" + p.B.predicate().explain(i) + "\n" + oddel + "]"
-	} else {
-		//b = oddel + "[\n" + oddel2 + fmt.Sprintf("%T: %v", p.B, p.B) + "\n" + oddel + "]"
-		//b = oddel + "" + fmt.Sprintf("%T:%v", p.B, p.B)+ ""
-		b = fmt.Sprintf("%s%v", oddel, p.B)
-	}
-	return fmt.Sprintf("%s%s%s [pca:%.2f(%v/%v) cos:%v]\n%s", a, oddel, p.op, (p.call)/(p.ctrue), p.ctrue, p.call, statNumber(p.cost.Nanoseconds()/1e6), b)
-	//(predicate cardinality:
+func f_lseq(a *term, b *term, d kvUnmarsh) interface{} {
+    
+    if a.val != nil && b.val != nil {
+
+        va, ka := a.val.(Key)
+        if ka {
+            ra, err := d.unmarshal(va)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:ra}
+            return f_eq(c, b, d)
+        }
+        vb, kb := b.val.(Key)
+        if kb {
+            rb, err := d.unmarshal(vb)
+            if err != nil {
+                return nil
+            }
+            c := &term{val:rb}
+            return f_eq(a, c, d)
+        }
+
+        switch va := a.val.(type) {
+        case int64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va <= vb
+            case float64:
+                return float64(va) <= vb
+            }
+        case float64:
+            switch vb := b.val.(type) {
+            case int64:
+                return va <= float64(vb)
+            case float64:
+                return va <= vb
+            }
+        case string:
+            switch vb := b.val.(type) {
+            case string:
+                //lexically bytewise greater than
+                return va <= vb
+            default:
+                return nil
+            }
+        case time.Time:
+            switch vb := b.val.(type) {
+            case time.Time:
+                return va.After(vb) || va.Equal(vb)
+            default:
+                return nil
+            }
+        default:
+            return nil
+        }
+    }    
+    return nil
 }
 
-func (p *predicate) len() (r int) {
-	r = 1
+func f_nil(a *term, b *term, d kvUnmarsh) interface{} {
+    if a.val == nil {
+        return true
+    }
 
-	if p.A.typeof() == PREDICATE {
-		r = r + p.A.predicate().len()
-	}
-	if p.B.typeof() == PREDICATE {
-		r = r + p.B.predicate().len()
-	}
-	return
-}*/
+    va, ka := a.val.(Key)
+    if ka {
+        ra, err := d.unmarshal(va)
+        if err != nil {
+            return nil
+        }
+        if ra == nil {
+            return true       
+        }
+    }
+    return false
+}
+func f_nnil(a *term, b *term, d kvUnmarsh) interface{} {
+    if a.val == nil {
+        return false
+    }
+    va, ka := a.val.(Key)
+    if ka {
+        ra, err := d.unmarshal(va)
+        if err != nil {
+            return nil
+        }
+        if ra == nil {
+            return false       
+        }
+    }
+    return true
+}
+
+
+
+func f_a(a *term, b *term, d kvUnmarsh) interface{} {
+    if a.val != nil && b.val != nil {
+        va, e := a.val.(*predicate)
+        if !e { 
+            return nil
+        }
+        vb, e := b.val.(*predicate)
+        if !e { 
+            return nil
+        }
+        eva := va.eval(d)
+        evb := vb.eval(d)
+        //if eva != nil && evb != nil {
+            veva, e := eva.(bool)
+            if !e { 
+                return nil
+            }
+            if !veva {
+                return false
+            }
+
+            vevb, e := evb.(bool)
+            if !e { 
+                return nil
+            }
+            return veva && vevb
+        //}
+    }    
+    return nil
+}
+func f_o(a *term, b *term, d kvUnmarsh) interface{} {
+    if a.val != nil && b.val != nil {
+        va, e := a.val.(*predicate)
+        if !e { 
+            return nil
+        }
+        vb, e := b.val.(*predicate)
+        if !e { 
+            return nil
+        }
+        eva := va.eval(d)
+        evb := vb.eval(d)
+        //if eva != nil && evb != nil {
+            veva, e := eva.(bool)
+            if !e { 
+                return nil
+            }
+            vevb, e := evb.(bool)
+            if !e { 
+                return nil
+            }
+            return veva || vevb
+        //}
+    }    
+    return nil
+}
+
+func f_n(a *term, b *term, d kvUnmarsh) interface{} {
+    if b.val != nil {
+        vb, e := b.val.(*predicate)
+        if !e { 
+            return nil
+        }
+        evb := vb.eval(d)
+        //if eva != nil && evb != nil {
+        vevb, e := evb.(bool)
+        if !e { 
+            return nil
+        }
+        return !vevb
+        //}
+    }    
+    return nil
+}
+
+func (p *predicate) eval(d kvUnmarsh) interface{} {
+    return p.f(p.a, p.b, d)
+}
+
+ 
