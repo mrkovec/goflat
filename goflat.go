@@ -4,35 +4,29 @@ package goflat
 type Connector interface {
 	Connect(db, user string) (Session, error)
 	Disconnect() error
- 
 }
 
-// Connector mediates basic database functionality
+// Session descriptor
 type Session interface {
 	// Runs provided function inside ACID transaction
 	Transaction(func(Trx) error) error
-	// Registers a view for use for all transactions created from this db connection
-	//RegisterView(interface{}) error
-	//RegisterFunc(interface{}) error
-	/*GetView(string) *ViewParam*/
-	//LastTransStats() stats
-	//SetConcurrencyControl(concurrencyControl)
 }
 
 // Trx is a single ACID transaction descriptor
 type Trx interface {
-	// Inserts records into database
+	// Initiates a new insert statement
 	Insert() *insStatement
-	// Runs a sellect query from provided view
+	// Initiates a new select statement
 	Select() *selStatement
+	// Initiates a new update statement
 	Update() *updStatement
-	Delete() *delStatement 
-	//Select(viewName string, args ...Value) ([]Set, error)
-	// Updates records selected by view to 
-	//Update(viewName string, args ...Value, set Set) (int, error)
+	// Initiates a new delete statement
+	Delete() *delStatement
 }
 
-type Key string
-type Value interface{}
+// A key:value data set
 type Set map[Key]Value
-
+// A key in a key:value data set
+type Key string
+// A value in a key:value data set
+type Value interface{}

@@ -9,22 +9,21 @@ import (
 	"strings"
 )
 
-
 var (
-	errAlreadyConnected = &Error{err: errors.New("connection already established")}
+	errAlreadyConnected    = &Error{err: errors.New("connection already established")}
 	errAlreadyDisconnected = &Error{err: errors.New("connection already closed")}
 
 	errWrongRecordValue = &Error{}
 )
 
 var (
-	ErrTransTimeout  = &Error{err: errors.New("timeout")}
-	errTransBlocked  = &Error{err: errors.New("transaction was blocked")}
+	ErrTransTimeout = &Error{err: errors.New("timeout")}
+	errTransBlocked = &Error{err: errors.New("transaction was blocked")}
 )
 
 type Error struct {
-	err   error
-	attr  string
+	err  error
+	attr string
 }
 
 func (f *Error) Error() string {

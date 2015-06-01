@@ -16,6 +16,7 @@ type flatFileVer struct {
 	version int
 	sync.RWMutex
 }
+
 func (f *flatFileVer) get() int {
 	f.RLock()
 	defer f.RUnlock()
@@ -32,6 +33,7 @@ type kvUnmarsh interface {
 	unmarshal(Key) (interface{}, error)
 	unmarshalAll() (Set, error)
 }
+
 /*func (r Record) unmarshal(k Key) (interface{}, error) {
 	return r[k], nil
 }
@@ -39,10 +41,9 @@ func (r Record) unmarshalAll() (Record, error) {
 	return r, nil
 }*/
 
-
 type recDec struct {
 	//b     *basicFlatFile
-	data  [][]byte
+	data [][]byte
 }
 
 func (r *recDec) unmarshal(key Key) (interface{}, error) {
@@ -58,13 +59,12 @@ func (r *recDec) unmarshalAll() (Set, error) {
 }
 
 func (s Set) unmarshal(key Key) (interface{}, error) {
-	v, _ := s[key] 
+	v, _ := s[key]
 	return v, nil
 }
 func (s Set) unmarshalAll() (Set, error) {
 	return s, nil
 }
-
 
 /*type drec struct {
 	b     *basicFlatFile
@@ -80,7 +80,6 @@ func (b *basicFlatFile) prepDrec(i int) kvUnmarsh {
 	}
 	return  &drec{b: b, data: b.data[i], sloth: b.sloth[i]}
 }*/
-
 
 /*func newDrec(ib *basicFlatFile, ii int) kvUnmarsh {
 	//return &drec{b:ib, data:ib.data[ii], sloth:ib.sloth[ii], i:ii}
@@ -145,11 +144,6 @@ func (d *drec) unmarshalAll() (Record, error) {
 	return d.sloth, nil
 }*/
 
-
-
-
-
-
 func (c ConControl) String() string {
 	switch c {
 	case OPTIMISTIC:
@@ -162,6 +156,7 @@ func (c ConControl) String() string {
 		return "unknown"
 	}
 }
+
 /*
 func (b basicFlatFile) String() string {
 	if b.stats.error != nil {
@@ -174,92 +169,88 @@ func (b *basicFlatFile) String() string {
 	return fmt.Sprintf("[%v:%s] transaction %s in %v (waited:%v, restarted:%v), rows inserted:%v updated:%v deleted:%v", b.id, b.user, b.stats.LastStatement, b.stats.Duration, b.stats.Waited, statNumber(b.stats.Restarts), statNumber(b.stats.Inserted), statNumber(b.stats.Updated), statNumber(b.stats.Deleted))
 }
 
-
-
 func (o StatementType) String() string {
 	switch o {
-	case SELECT:
+	case sELECT:
 		return "select"
-	case INSERT:
+	case iNSERT:
 		return "insert"
-	case UPDATE:
+	case uPDATE:
 		return "update"
-	case DELETE:
+	case dELETE:
 		return "delete"
-	case COMMIT:
+	case cOMMIT:
 		return "commit"
-	case ROLLBACK:
+	case rOLLBACK:
 		return "rollback"
 	default:
 		return "unknown"
 	}
 }
 
-
 //Binary prefix
 type byteSize float64
+
 const (
 	_           = iota // ignore first value by assigning to blank identifier
-	KB byteSize = 1 << (10 * iota)
-	MB
-	GB
-	TB
-	PB
-	EB
-	ZB
-	YB
+	bKB byteSize = 1 << (10 * iota)
+	bMB
+	bGB
+	bTB
+	bPB
+	bEB
+	bZB
+	bYB
 )
 
 func (b byteSize) String() string {
 	switch {
-	case b >= YB:
-		return fmt.Sprintf("%.2fYiB", b/YB)
-	case b >= ZB:
-		return fmt.Sprintf("%.2fZiB", b/ZB)
-	case b >= EB:
-		return fmt.Sprintf("%.2fEiB", b/EB)
-	case b >= PB:
-		return fmt.Sprintf("%.2fPiB", b/PB)
-	case b >= TB:
-		return fmt.Sprintf("%.2fTiB", b/TB)
-	case b >= GB:
-		return fmt.Sprintf("%.2fGiB", b/GB)
-	case b >= MB:
-		return fmt.Sprintf("%.2fMiB", b/MB)
-	case b >= KB:
-		return fmt.Sprintf("%.2fKiB", b/KB)
+	case b >= bYB:
+		return fmt.Sprintf("%.2fYiB", b/bYB)
+	case b >= bZB:
+		return fmt.Sprintf("%.2fZiB", b/bZB)
+	case b >= bEB:
+		return fmt.Sprintf("%.2fEiB", b/bEB)
+	case b >= bPB:
+		return fmt.Sprintf("%.2fPiB", b/bPB)
+	case b >= bTB:
+		return fmt.Sprintf("%.2fTiB", b/bTB)
+	case b >= bGB:
+		return fmt.Sprintf("%.2fGiB", b/bGB)
+	case b >= bMB:
+		return fmt.Sprintf("%.2fMiB", b/bMB)
+	case b >= bKB:
+		return fmt.Sprintf("%.2fKiB", b/bKB)
 	}
 	return fmt.Sprintf("%dB", int(b))
 }
 
 //SI prefixes
 type statNumber float64
+
 const (
-	KILO statNumber = 1e3
-	MEGA statNumber = 1e6
-	GIGA statNumber = 1e9
-	TERA statNumber = 1e12
-	PETA statNumber = 1e15
-	EXA  statNumber = 1e18
+	sKILO statNumber = 1e3
+	sMEGA statNumber = 1e6
+	sGIGA statNumber = 1e9
+	sTERA statNumber = 1e12
+	sPETA statNumber = 1e15
+	sEXA  statNumber = 1e18
 )
 
 func (b statNumber) String() string {
 	switch {
-	case b >= EXA:
-		return fmt.Sprintf("%.2fE", b/EXA)
-	case b >= PETA:
-		return fmt.Sprintf("%.2fP", b/PETA)
-	case b >= TERA:
-		return fmt.Sprintf("%.2fT", b/TERA)
-	case b >= GIGA:
-		return fmt.Sprintf("%.2fG", b/GIGA)
-	case b >= MEGA:
-		return fmt.Sprintf("%.2fM", b/MEGA)
-	case b >= KILO:
-		return fmt.Sprintf("%.2fk", b/KILO)
+	case b >= sEXA:
+		return fmt.Sprintf("%.2fE", b/sEXA)
+	case b >= sPETA:
+		return fmt.Sprintf("%.2fP", b/sPETA)
+	case b >= sTERA:
+		return fmt.Sprintf("%.2fT", b/sTERA)
+	case b >= sGIGA:
+		return fmt.Sprintf("%.2fG", b/sGIGA)
+	case b >= sMEGA:
+		return fmt.Sprintf("%.2fM", b/sMEGA)
+	case b >= sKILO:
+		return fmt.Sprintf("%.2fk", b/sKILO)
 	}
 	return fmt.Sprintf("%d", int(b))
 }
-
-
-

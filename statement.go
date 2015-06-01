@@ -11,33 +11,35 @@ import (
 )
 
 func (b *basicFlatFile) Insert() *insStatement {
-	return &insStatement{b:b, bif:nil, aft:nil}
+	return &insStatement{b: b, bif: nil, aft: nil}
 }
 func (b *basicFlatFile) Select() *selStatement {
-	return &selStatement{b:b, from:nil, where:nil}
+	return &selStatement{b: b, from: nil, where: nil}
 }
 func (b *basicFlatFile) Update() *updStatement {
-	return &updStatement{b:b, bif:nil, aft:nil}
+	return &updStatement{b: b, bif: nil, aft: nil}
 }
 func (b *basicFlatFile) Delete() *delStatement {
-	return &delStatement{b:b, bif:nil}
+	return &delStatement{b: b, bif: nil}
 }
+
 /*func (b *basicFlatFile) Update(viewName string, args ...Value, set Set) (int, error) {
 	d, err :=  b.Select(viewName, args...)
 	if err != nil {
 		return 0, feedErr(err, 1)
 	}
-	
+
 	return 0, nil
 }*/
 type insStatement struct {
-	b *basicFlatFile
+	b   *basicFlatFile
 	bif func(Trx, Set) error
 	aft func(Trx, Set) error
 }
+
 func (i *insStatement) Values(r ...Set) error {
 	var err error
-	
+
 	if i.bif != nil {
 		for _, or := range r {
 			err = i.bif(i.b, or)
@@ -46,7 +48,7 @@ func (i *insStatement) Values(r ...Set) error {
 			}
 		}
 	}
-	
+
 	if err = i.b.encodeData(r...); err != nil {
 		return feedErr(err, 2)
 	}
@@ -58,26 +60,27 @@ func (i *insStatement) Values(r ...Set) error {
 				return feedErr(err, 3)
 			}
 		}
-	}	
+	}
 
 	i.b.stats.Inserted = i.b.stats.Inserted + len(r)
 	i.b.needStore = true
-	return nil	
+	return nil
 }
 func (i *insStatement) BeforeTrigger(f func(Trx, Set) error) *insStatement {
 	i.bif = f
 	return i
-}	
+}
 func (i *insStatement) AfterTrigger(f func(Trx, Set) error) *insStatement {
 	i.aft = f
 	return i
 }
 
 type selStatement struct {
-	b *basicFlatFile
-	from interface{}
+	b     *basicFlatFile
+	from  interface{}
 	where *predicate
 }
+
 func (s *selStatement) From(f interface{}) *selStatement {
 	s.from = f
 	return s
@@ -89,60 +92,60 @@ func (s *selStatement) Where(p *predicate) *selStatement {
 func (s *selStatement) AllRows() ([]Set, error) {
 	var (
 		err error
- 		d kvUnmarsh
- 		nr Set
- 		ve bool
- 		//ex bool
- 	)
- 	c := make([]Set, 0, len(s.b.data))
- 	if s.from != nil {
- 		var data []Set
+		d   kvUnmarsh
+		nr  Set
+		ve  bool
+		//ex bool
+	)
+	c := make([]Set, 0, len(s.b.data))
+	if s.from != nil {
+		var data []Set
 
- 		switch vsfrom := s.from.(type) {
- 		case *selStatement:
- 			data, err = vsfrom.AllRows()
- 			if err != nil {
- 				return nil, feedErr(err,1)
- 			}
- 		case []Set:
- 			data = vsfrom
- 		default:
- 			return nil, feedErr(fmt.Errorf("invalid from parameter"),2)
- 		}
- 		
- 		for _, os := range data {
- 			ve, err = evalPredic(s.where, os)
- 			if err != nil {
- 				return nil, feedErr(err, 3)
- 			}
-            if ve {
- 				nr, err = os.unmarshalAll()
-				if err != nil { 
-					return nil, feedErr(err,4)
-				}
-				c = append(c, nr)
-	        }
- 		}
-
- 	} else {
-
-	 	for _, os := range s.b.data {
-	 		d = &recDec{data:os}
-	 		ve, err = evalPredic(s.where, d)
+		switch vsfrom := s.from.(type) {
+		case *selStatement:
+			data, err = vsfrom.AllRows()
 			if err != nil {
- 				return nil, feedErr(err, 5)
- 			}	        
-	        if ve {
-				nr, err = d.unmarshalAll()
-				if err != nil { 
-					return nil, feedErr(err , 6)
+				return nil, feedErr(err, 1)
+			}
+		case []Set:
+			data = vsfrom
+		default:
+			return nil, feedErr(fmt.Errorf("invalid from parameter"), 2)
+		}
+
+		for _, os := range data {
+			ve, err = evalPredic(s.where, os)
+			if err != nil {
+				return nil, feedErr(err, 3)
+			}
+			if ve {
+				nr, err = os.unmarshalAll()
+				if err != nil {
+					return nil, feedErr(err, 4)
 				}
 				c = append(c, nr)
-	        }
+			}
+		}
 
-	 	}
-	 }
- 	return c, nil
+	} else {
+
+		for _, os := range s.b.data {
+			d = &recDec{data: os}
+			ve, err = evalPredic(s.where, d)
+			if err != nil {
+				return nil, feedErr(err, 5)
+			}
+			if ve {
+				nr, err = d.unmarshalAll()
+				if err != nil {
+					return nil, feedErr(err, 6)
+				}
+				c = append(c, nr)
+			}
+
+		}
+	}
+	return c, nil
 }
 
 func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
@@ -155,17 +158,17 @@ func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
 		return false, nil
 	}
 	ve, ex := e.(bool)
-   	if !ex { 
+	if !ex {
 		return false, fmt.Errorf("invalid predicate result: %v", e)
 	}
 	return ve, nil
 }
 
 type updStatement struct {
-	b *basicFlatFile
+	b     *basicFlatFile
 	where *predicate
-	bif func(Trx, Set, Set) error
-	aft func(Trx, Set) error
+	bif   func(Trx, Set, Set) error
+	aft   func(Trx, Set) error
 }
 
 func (u *updStatement) Where(p *predicate) *updStatement {
@@ -175,7 +178,7 @@ func (u *updStatement) Where(p *predicate) *updStatement {
 func (u *updStatement) BeforeTrigger(f func(Trx, Set, Set) error) *updStatement {
 	u.bif = f
 	return u
-}	
+}
 func (u *updStatement) AfterTrigger(f func(Trx, Set) error) *updStatement {
 	u.aft = f
 	return u
@@ -184,23 +187,23 @@ func (u *updStatement) AfterTrigger(f func(Trx, Set) error) *updStatement {
 func (u *updStatement) Set(s Set) (int, error) {
 	var (
 		err error
- 		d kvUnmarsh
- 		//nr Set
- 		ve bool
- 		num int
-  	)
+		d   kvUnmarsh
+		//nr Set
+		ve  bool
+		num int
+	)
 	num = 0
- 	for _, os := range u.b.data {
- 		d = &recDec{data:os}
- 		ve, err = evalPredic(u.where, d)
- 		if err != nil {
- 			return num, feedErr(err, 1)
- 		}
+	for _, os := range u.b.data {
+		d = &recDec{data: os}
+		ve, err = evalPredic(u.where, d)
+		if err != nil {
+			return num, feedErr(err, 1)
+		}
 
 		if ve {
 			ve = false
 			for key, val := range s {
-				
+
 				for i := 0; i < len(os); i = i + 2 {
 					if Key(os[i]) == key {
 						if u.bif != nil {
@@ -208,12 +211,12 @@ func (u *updStatement) Set(s Set) (int, error) {
 							if err != nil {
 								return num, feedErr(err, 2)
 							}
-							err = u.bif(u.b, map[Key]Value{key:oldv}, map[Key]Value{key:val})
+							err = u.bif(u.b, map[Key]Value{key: oldv}, map[Key]Value{key: val})
 							if err != nil {
 								return num, feedErr(err, 3)
 							}
 						}
-						
+
 						nval, err := encodeValue(val)
 						if err != nil {
 							return num, feedErr(err, 4)
@@ -224,7 +227,7 @@ func (u *updStatement) Set(s Set) (int, error) {
 						u.b.needStore = true
 
 						if u.aft != nil {
-							err = u.aft(u.b, map[Key]Value{key:val})
+							err = u.aft(u.b, map[Key]Value{key: val})
 							if err != nil {
 								return num, feedErr(err, 5)
 							}
@@ -237,28 +240,28 @@ func (u *updStatement) Set(s Set) (int, error) {
 				num++
 			}
 		}
- 	}
-	
+	}
+
 	u.b.stats.Updated = u.b.stats.Updated + num
- 	return num, nil
+	return num, nil
 }
 
 func (u *updStatement) Add(s Set) (int, error) {
 	var (
 		err error
- 		d kvUnmarsh
- 		//nr Set
- 		ve bool
- 		num int
- 		ex bool
-  	)
+		d   kvUnmarsh
+		//nr Set
+		ve  bool
+		num int
+		ex  bool
+	)
 	num = 0
- 	for osi, os := range u.b.data {
- 		d = &recDec{data:os}
- 		ve, err = evalPredic(u.where, d)
- 		if err != nil {
- 			return num, feedErr(err, 1)
- 		}
+	for osi, os := range u.b.data {
+		d = &recDec{data: os}
+		ve, err = evalPredic(u.where, d)
+		if err != nil {
+			return num, feedErr(err, 1)
+		}
 
 		if ve {
 			ve = false
@@ -272,49 +275,50 @@ func (u *updStatement) Add(s Set) (int, error) {
 				}
 				if !ex {
 
-						if u.bif != nil {
-							err = u.bif(u.b, nil, map[Key]Value{key:val})
-							if err != nil {
-								return num, feedErr(err, 3)
-							}
-						}
-						
-						nval, err := encodeValue(val)
+					if u.bif != nil {
+						err = u.bif(u.b, nil, map[Key]Value{key: val})
 						if err != nil {
-							return num, feedErr(err, 4)
+							return num, feedErr(err, 3)
 						}
+					}
 
-						s := make([][]byte, 2)
-						s[0] = []byte(key)
-						s[1] = nval
-						u.b.data[osi] = append(u.b.data[osi], s[0], s[1])
+					nval, err := encodeValue(val)
+					if err != nil {
+						return num, feedErr(err, 4)
+					}
 
-						ve = true
-						u.b.needStore = true
+					s := make([][]byte, 2)
+					s[0] = []byte(key)
+					s[1] = nval
+					u.b.data[osi] = append(u.b.data[osi], s[0], s[1])
 
-						if u.aft != nil {
-							err = u.aft(u.b, map[Key]Value{key:val})
-							if err != nil {
-								return num, feedErr(err, 5)
-							}
+					ve = true
+					u.b.needStore = true
+
+					if u.aft != nil {
+						err = u.aft(u.b, map[Key]Value{key: val})
+						if err != nil {
+							return num, feedErr(err, 5)
 						}
+					}
 				}
 			}
 			if ve {
 				num++
 			}
 		}
- 	}
-	
+	}
+
 	u.b.stats.Updated = u.b.stats.Updated + num
- 	return num, nil
+	return num, nil
 }
 
 type delStatement struct {
-	b *basicFlatFile
+	b     *basicFlatFile
 	where *predicate
-	bif func(Trx, Set) error
+	bif   func(Trx, Set) error
 }
+
 func (u *delStatement) Where(p *predicate) *delStatement {
 	u.where = p
 	return u
@@ -322,74 +326,73 @@ func (u *delStatement) Where(p *predicate) *delStatement {
 func (u *delStatement) BeforeTrigger(f func(Trx, Set) error) *delStatement {
 	u.bif = f
 	return u
-}	
+}
 func (u *delStatement) Row() (int, error) {
-		var (
+	var (
 		err error
- 		d kvUnmarsh
- 		ve bool
- 		num int
- 		//ex bool
-  	)
+		d   kvUnmarsh
+		ve  bool
+		num int
+	//ex bool
+	)
 	num = 0
- 	for i, os := range u.b.data {
- 		d = &recDec{data:os}
- 		ve, err = evalPredic(u.where, d)
- 		if err != nil {
- 			return num, feedErr(err, 1)
- 		}
- 		if ve {
+	for i, os := range u.b.data {
+		d = &recDec{data: os}
+		ve, err = evalPredic(u.where, d)
+		if err != nil {
+			return num, feedErr(err, 1)
+		}
+		if ve {
 
 			if u.bif != nil {
 				s, err := d.unmarshalAll()
 				if err != nil {
 					return num, feedErr(err, 2)
-				}				
+				}
 				err = u.bif(u.b, s)
 				if err != nil {
 					return num, feedErr(err, 2)
 				}
 			}
 
- 			u.b.data[i], u.b.data[len(u.b.data)-1], u.b.data = u.b.data[len(u.b.data)-1], nil, u.b.data[:len(u.b.data)-1]
- 			u.b.needStore = true
- 			num++
- 		}
- 	}
- 	u.b.stats.Deleted = u.b.stats.Deleted + num
- 	return num, nil
+			u.b.data[i], u.b.data[len(u.b.data)-1], u.b.data = u.b.data[len(u.b.data)-1], nil, u.b.data[:len(u.b.data)-1]
+			u.b.needStore = true
+			num++
+		}
+	}
+	u.b.stats.Deleted = u.b.stats.Deleted + num
+	return num, nil
 }
 func (u *delStatement) Key(k ...Key) (int, error) {
-		var (
+	var (
 		err error
- 		d kvUnmarsh
- 		ve bool
- 		num int
- 		ex bool
- 		di int
-  	)
-	num = 0	
-	START:
+		d   kvUnmarsh
+		ve  bool
+		num int
+		ex  bool
+		di  int
+	)
+	num = 0
+START:
 
-
- 	for i, os := range u.b.data {
- 		d = &recDec{data:os}
- 		ve, err = evalPredic(u.where, d)
- 		if err != nil {
- 			return num, feedErr(err, 1)
- 		}
- 		ex = false
- 		if ve {
- 			ve = false
+	for i, os := range u.b.data {
+		d = &recDec{data: os}
+		ve, err = evalPredic(u.where, d)
+		if err != nil {
+			return num, feedErr(err, 1)
+		}
+		ex = false
+		if ve {
+			ve = false
 			for _, key := range k {
 				//fmt.Println(key)
 				ex = false
 				for i := 0; i < len(os); i = i + 2 {
-						if Key(os[i]) == key {
-							ex = true
-							di = i
-							break
-						}
+					if Key(os[i]) == key {
+						ex = true
+						di = i
+						break
+					}
 				}
 				if ex {
 
@@ -398,7 +401,7 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 						if err != nil {
 							return num, feedErr(err, 2)
 						}
-						err = u.bif(u.b, map[Key]Value{key:v})
+						err = u.bif(u.b, map[Key]Value{key: v})
 						if err != nil {
 							return num, feedErr(err, 2)
 						}
@@ -414,10 +417,10 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 					copy(u.b.data[i][di:], u.b.data[i][di+2:])
 					u.b.data[i][len(u.b.data[i])-2] = nil // or the zero value of T
 					u.b.data[i][len(u.b.data[i])-1] = nil // or the zero value of T
-					u.b.data[i] = u.b.data[i][:len(u.b.data[i])-2]				
+					u.b.data[i] = u.b.data[i][:len(u.b.data[i])-2]
 
 					//fmt.Printf("%v\n", len(u.b.data[i]))
-		 			u.b.needStore = true
+					u.b.needStore = true
 					ve = true
 
 					if len(u.b.data[i]) == 0 {
@@ -425,16 +428,17 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 					}
 				}
 			}
-			if ve { 			
- 				num++
- 				goto START
- 			}
- 		}
- 	}
+			if ve {
+				num++
+				goto START
+			}
+		}
+	}
 
- 	u.b.stats.Deleted = u.b.stats.Deleted + num
- 	return num, nil
+	u.b.stats.Deleted = u.b.stats.Deleted + num
+	return num, nil
 }
+
 /*type statement struct {
 	b *basicFlatFile
 	t StatementType
@@ -442,14 +446,7 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 	aft func(Trx, Set) error
 }*/
 
-
-
 //updStatement interface
-
-
-
-
-
 
 // func (b *basicFlatFile) read(v *View) ([]Set, error) {
 // 	var (
@@ -461,13 +458,12 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 // 	for _, s := range b.data {
 // 		d = &recDec{data:s}
 // 		err = b.eval(v, d, &c)
-// 		if err != nil { 
-// 			return nil, err	
+// 		if err != nil {
+// 			return nil, err
 // 		}
 // 	}
 // 	return c, nil
 // }
-
 
 // func (b *basicFlatFile) eval(v *View, d kvUnmarsh, c *[]Set) error {
 // 	var (
@@ -478,8 +474,8 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 // 	nr, ex = v.filter(d)
 // 	if ex {
 // 		ex, err = v.evaulatePredicates(d)
-// 		if err!= nil { 
-// 			return err 
+// 		if err!= nil {
+// 			return err
 // 		}
 // 		if ex {
 // 			if nr != nil {
@@ -488,8 +484,8 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 // 			} else {
 // 				//unmarshal all fields
 // 				nr, err = d.unmarshalAll()
-// 				if err!= nil { 
-// 					return err 
+// 				if err!= nil {
+// 					return err
 // 				}
 // 				//*c = append(*c, nr)
 // 				v.sort(c, nr)
@@ -498,7 +494,7 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 // 	}
 // 	return nil
 // }
- 
+
 // func (b *basicFlatFile) Select(viewName string, args ...Value) ([]Set, error) {
 // 	v, err := b.dbConn.view(viewName)
 // 	if err != nil {
@@ -515,5 +511,4 @@ func (u *delStatement) Key(k ...Key) (int, error) {
 // 	return b.read(v)
 // }
 
-
-//  
+//

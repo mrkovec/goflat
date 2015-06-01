@@ -1,8 +1,8 @@
 package goflat
 
 import (
-	"encoding/gob"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"os"
 	//"bytes"
@@ -15,12 +15,10 @@ import (
 	"sync"
 )
 
-
 var (
-	uberLock map[string]chan struct{}
+	uberLock    map[string]chan struct{}
 	uberVersion map[string]*flatFileVer
 	sessionPool sync.Pool
-
 )
 
 var (
@@ -30,10 +28,10 @@ var (
 	DefaultTrxLocking ConControl = OPTIMISTIC
 )
 
-
 //http://en.wikipedia.org/wiki/Concurrency_control#Database_transaction_and_the_ACID_rules
 // concurrency control method
 type ConControl int
+
 const (
 	OPTIMISTIC ConControl = iota
 	PESSIMISTIC
@@ -43,57 +41,57 @@ const (
 // transaction parameters
 type Config struct {
 	Timeout time.Duration
-	Locking          ConControl
+	Locking ConControl
 }
 
 type StatementType int
+
 const (
-	SELECT StatementType = iota
-	INSERT
-	UPDATE
-	DELETE
-	COMMIT
-	ROLLBACK
+	sELECT StatementType = iota
+	iNSERT
+	uPDATE
+	dELETE
+	cOMMIT
+	rOLLBACK
 )
 
 // cumulative session statistics
 type Stats struct {
 	// last executed statement
-	LastStatement StatementType
-	StatementError                      error
+	LastStatement  StatementType
+	StatementError error
 	// number of records processed in session transactions
 	Inserted, Updated, Deleted int
-	// sum of transactions execution times 
-	Duration                   time.Duration
-	// sum of transactions waiting times 
-	Waited                     time.Duration
+	// sum of transactions execution times
+	Duration time.Duration
+	// sum of transactions waiting times
+	Waited time.Duration
 	// number of transaction restarts
-	Restarts					int
+	Restarts int
 	// io statistics
-	Readed                     byteSize
-	Writed                     byteSize
+	Readed byteSize
+	Writed byteSize
 }
 
 type basicFlatFile struct {
 	//db params
-	dbConn *connector
-	dbFilename      string
-	hdrFilename     string
-	dbLock chan struct{}
-	dbVer *flatFileVer
-	lastVer int
+	dbConn      *connector
+	dbFilename  string
+	hdrFilename string
+	dbLock      chan struct{}
+	dbVer       *flatFileVer
+	lastVer     int
 	sync.Mutex
 
 	//session params
-	id              uint32
-	user            string
+	id    uint32
+	user  string
 	stats Stats
 
 	//trx params
-	config *Config
+	config    *Config
 	haveLock  bool
 	needStore bool
-	
 
 	//data params
 	/*lastid uint
@@ -104,14 +102,12 @@ type basicFlatFile struct {
 	data [][][]byte
 }
 
-
 // satisfy Connector interface
 type connector struct {
-	sync.RWMutex	
+	sync.RWMutex
 	ses *basicFlatFile
- 
-
 }
+
 func NewConnector() Connector {
 	return &connector{}
 }
@@ -119,7 +115,7 @@ func (c *connector) Connect(db, user string) (Session, error) {
 	c.Lock()
 	defer c.Unlock()
 	if c.ses != nil {
-		return  nil, errAlreadyConnected
+		return nil, errAlreadyConnected
 	}
 
 	if uberLock == nil {
@@ -127,39 +123,38 @@ func (c *connector) Connect(db, user string) (Session, error) {
 	}
 	fl, e := uberLock[db]
 	if !e {
-		fl = make(chan struct{},1)
+		fl = make(chan struct{}, 1)
 		uberLock[db] = fl
-	} 
+	}
 
 	if uberVersion == nil {
 		uberVersion = make(map[string]*flatFileVer)
 	}
 	fv, e := uberVersion[db]
 	if !e {
-		fv = &flatFileVer{version:0}
+		fv = &flatFileVer{version: 0}
 		uberVersion[db] = fv
-	} 
-
+	}
 
 	t, _ := time.Now().MarshalBinary()
 	var ids [][]byte = [][]byte{[]byte(db), []byte(user), t}
 
 	sp := sessionPool.Get()
-	
+
 	if sp == nil {
 		c.ses = &basicFlatFile{config: &Config{}, data: make([][][]byte, 0, 1024)}
 	} else {
 		c.ses = sp.(*basicFlatFile)
 	}
-	c.ses.dbFilename = db + ".dtb" 
-	c.ses.hdrFilename = db + ".hdr" 
+	c.ses.dbFilename = db + ".dtb"
+	c.ses.hdrFilename = db + ".hdr"
 	c.ses.dbLock = fl
 	c.ses.dbVer = fv
 	h := fnv.New32a()
 	h.Write(bytes.Join(ids, []byte("")))
 	c.ses.id = h.Sum32()
 	c.ses.user = user
-	c.ses.config.Timeout = DefaultTrxTimeout 
+	c.ses.config.Timeout = DefaultTrxTimeout
 	c.ses.config.Locking = DefaultTrxLocking
 	c.ses.dbConn = c
 	return c.ses, nil
@@ -177,7 +172,7 @@ func (c *connector) Disconnect() error {
 	c.ses = nil
 	return nil
 }
- 
+
 // satisfy Session interface
 
 func (b *basicFlatFile) load() error {
@@ -194,7 +189,7 @@ func (b *basicFlatFile) load() error {
 		return feedErr(err, 1)
 	}
 	defer f.Close()
-	
+
 	needReload := b.lastVer != b.dbVer.get()
 
 	if !needReload {
@@ -202,7 +197,7 @@ func (b *basicFlatFile) load() error {
 	}
 
 	b.data = b.data[0:0]
-	
+
 	dec := gob.NewDecoder(f)
 	err = dec.Decode(&b.data)
 	if err != nil && err != io.EOF {
@@ -233,51 +228,50 @@ func (b *basicFlatFile) store() error {
 
 func (b *basicFlatFile) commit() error {
 	var err error
-	b.stats.LastStatement = COMMIT
+	b.stats.LastStatement = cOMMIT
 
 	if b.needStore {
 		switch b.config.Locking {
 		case OPTIMISTIC:
 			if b.lastVer != b.dbVer.get() {
-				b.stats.Restarts ++
+				b.stats.Restarts++
 				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked,1)
+				return feedErr(errTransBlocked, 1)
 			}
 			if err = b.nowaitlock(); err != nil {
-				b.stats.Restarts ++
+				b.stats.Restarts++
 				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked,2)
+				return feedErr(errTransBlocked, 2)
 			}
 		case NOWAIT:
 			if b.lastVer != b.dbVer.get() {
 				return b.rollback(nil)
 			}
 			if err = b.nowaitlock(); err != nil {
-				return b.rollback(nil)	
+				return b.rollback(nil)
 			}
 		default:
-			return feedErr(fmt.Errorf("unknown locking mode"),3)
+			return feedErr(fmt.Errorf("unknown locking mode"), 3)
 		}
 	}
-	
+
 	if err = b.store(); err != nil {
-		return feedErr(err,3)
+		return feedErr(err, 3)
 	}
 	return nil
 }
 
 func (b *basicFlatFile) rollback(e error) error {
-	b.stats.LastStatement = ROLLBACK
+	b.stats.LastStatement = rOLLBACK
 	b.stats.StatementError = e
 	b.needStore = false
 	return e
 }
 
-
-// runs a ACID transaction 
+// runs a ACID transaction
 func (b *basicFlatFile) Transaction(f func(Trx) error) error {
 	var err error
-	
+
 	err = b.runTransaction(f)
 	if err != nil {
 		if err == errTransBlocked {
@@ -331,11 +325,10 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 	return feedErr(b.commit(), 3)
 }
 
- 
 func (b *basicFlatFile) nowaitlock() error {
 	if b.haveLock {
 		return nil
-	}	
+	}
 
 	select {
 	case b.dbLock <- struct{}{}:
@@ -350,16 +343,16 @@ func (b *basicFlatFile) nowaitlock() error {
 func (b *basicFlatFile) lock() error {
 	if b.haveLock {
 		return nil
-	}	
+	}
 
 	start := time.Now()
 	select {
 	case b.dbLock <- struct{}{}:
 		b.haveLock = true
-		b.stats.Waited =  b.stats.Waited + time.Since(start)
+		b.stats.Waited = b.stats.Waited + time.Since(start)
 		return nil
 	case <-time.After(b.config.Timeout):
-		b.stats.Waited =  b.stats.Waited + time.Since(start)
+		b.stats.Waited = b.stats.Waited + time.Since(start)
 		return feedErr(ErrTransTimeout, 2)
 	}
 	return nil
@@ -368,16 +361,16 @@ func (b *basicFlatFile) lock() error {
 func (b *basicFlatFile) unlock() (err error) {
 	if !b.haveLock {
 		return nil
-	}	
+	}
 
-   select {
-    case <-b.dbLock :
-            return nil
-    default:
-           return feedErr(fmt.Errorf("unlocking and not having lock"), 2)
-    }
+	select {
+	case <-b.dbLock:
+		return nil
+	default:
+		return feedErr(fmt.Errorf("unlocking and not having lock"), 2)
+	}
 
-    return nil
+	return nil
 
 }
 
@@ -387,16 +380,15 @@ const (
 	FLOAT_PFX  byte = byte('f')
 	STRING_PFX byte = byte('s')
 	TIME_PFX   byte = byte('t')
-	BYTE_PFX byte = byte('b')
+	BYTE_PFX   byte = byte('b')
 )
-
 
 func encodeValue(val interface{}) ([]byte, error) {
 	switch r := val.(type) {
 	case bool:
 		if r {
 			return []byte{BOOL_PFX, 'T'}, nil
-		} 
+		}
 		return []byte{BOOL_PFX, 'F'}, nil
 	case int64:
 		buf := new(bytes.Buffer)
@@ -426,7 +418,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 		return append([]byte{STRING_PFX}, []byte(r)...), nil
 	case time.Time:
 		b, err := r.MarshalBinary()
-		if err!= nil {
+		if err != nil {
 			return nil, err
 		}
 		n := make([]byte, len(b)+1)
@@ -452,7 +444,7 @@ func encodeSet(r Set) ([][]byte, error) {
 		i++
 		n, err := encodeValue(val)
 		if err != nil {
-			return nil , err
+			return nil, err
 		}
 		s[i] = n
 		i++
@@ -494,11 +486,11 @@ func decodeValue(c []byte) (interface{}, error) {
 			return nil, fmt.Errorf("cannot convert value to float64: %v", err)
 		}
 		return fl, nil
-	case STRING_PFX:		
+	case STRING_PFX:
 		return string(c[1:]), nil
-	case TIME_PFX:		
+	case TIME_PFX:
 		var t time.Time
-		if err:= t.UnmarshalBinary(c[1:]); err != nil {
+		if err := t.UnmarshalBinary(c[1:]); err != nil {
 			return nil, fmt.Errorf("cannot convert value to time: %v", err)
 		}
 		return t, nil
@@ -511,7 +503,7 @@ func decodeValue(c []byte) (interface{}, error) {
 func decodeSet(s [][]byte) (Set, error) {
 	n := NewRecordSet()
 	//i := 0
-	 for i := 0; i < len(s); i = i + 2 {
+	for i := 0; i < len(s); i = i + 2 {
 		key := string(s[i])
 		val, err := decodeValue(s[i+1])
 		if err != nil {
@@ -522,7 +514,6 @@ func decodeSet(s [][]byte) (Set, error) {
 	return n, nil
 }
 
- 
 /*func (b *basicFlatFile) decodeData(r ...RecordSet) error {
 
 	for _, d := range r {
