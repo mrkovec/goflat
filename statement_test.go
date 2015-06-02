@@ -60,7 +60,7 @@ func ExampleTrx_Update() {
 
 } 
 
-func ExampleTrx_Delete() {
+func ExampleDeleteStmt() {
 	db := goflat.NewConnector()
 	session, err := db.Connect("test", "user/pasword")
 	if err != nil {
