@@ -35,10 +35,10 @@ func KeyTerm(k interface{}) *term {
 	return nil
 }
 
-func (a *term) Equal(b *term) *predicate {
+func (a *term) Equals(b *term) *predicate {
 	return &predicate{a: a, b: b, f: f_eq}
 }
-func (a *term) NotEqual(b *term) *predicate {
+func (a *term) NotEquals(b *term) *predicate {
 	return &predicate{a: a, b: b, f: f_neq}
 }
 func (a *term) Greater(b *term) *predicate {

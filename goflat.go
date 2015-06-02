@@ -1,8 +1,11 @@
+//A flat file NoSQL-like KV database with SQL-like DML syntax
 package goflat
 
 // Connector mediates basic database functionality
 type Connector interface {
+	// Connects to database with given credentials and returns new session
 	Connect(db, user string) (Session, error)
+	// Disconnect current session from database
 	Disconnect() error
 }
 
@@ -15,20 +18,20 @@ type Session interface {
 // Trx is a single ACID transaction descriptor
 type Trx interface {
 	// Initiates a new insert statement
-	Insert() *insStatement
+	Insert() *InsertStmt
 	// Initiates a new select statement
-	Select() *selStatement
+	Select() *SelectStmt
 	// Initiates a new update statement
-	Update() *updStatement
+	Update() *UpdateStmt
 	// Initiates a new delete statement
-	Delete() *delStatement
+	Delete() *DeleteStmt
 }
 
-// A key:value data set
+// Set is a key:value data set
 type Set map[Key]Value
 
-// A key in a key:value data set
+// Key type is key in a key:value data set
 type Key string
 
-// A value in a key:value data set
+// Value type is a value in a key:value data set
 type Value interface{}

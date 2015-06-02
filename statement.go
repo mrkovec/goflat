@@ -10,17 +10,17 @@ import (
 	//"time"
 )
 
-func (b *basicFlatFile) Insert() *insStatement {
-	return &insStatement{b: b, bif: nil, aft: nil}
+func (b *basicFlatFile) Insert() *InsertStmt {
+	return &InsertStmt{b: b, bif: nil, aft: nil}
 }
-func (b *basicFlatFile) Select() *selStatement {
-	return &selStatement{b: b, from: nil, where: nil}
+func (b *basicFlatFile) Select() *SelectStmt {
+	return &SelectStmt{b: b, from: nil, where: nil}
 }
-func (b *basicFlatFile) Update() *updStatement {
-	return &updStatement{b: b, bif: nil, aft: nil}
+func (b *basicFlatFile) Update() *UpdateStmt {
+	return &UpdateStmt{b: b, bif: nil, aft: nil}
 }
-func (b *basicFlatFile) Delete() *delStatement {
-	return &delStatement{b: b, bif: nil}
+func (b *basicFlatFile) Delete() *DeleteStmt {
+	return &DeleteStmt{b: b, bif: nil}
 }
 
 /*func (b *basicFlatFile) Update(viewName string, args ...Value, set Set) (int, error) {
@@ -31,13 +31,13 @@ func (b *basicFlatFile) Delete() *delStatement {
 
 	return 0, nil
 }*/
-type insStatement struct {
+type InsertStmt struct {
 	b   *basicFlatFile
 	bif func(Trx, Set) error
 	aft func(Trx, Set) error
 }
 
-func (i *insStatement) Values(r ...Set) error {
+func (i *InsertStmt) Values(r ...Set) error {
 	var err error
 
 	if i.bif != nil {
@@ -66,30 +66,30 @@ func (i *insStatement) Values(r ...Set) error {
 	i.b.needStore = true
 	return nil
 }
-func (i *insStatement) BeforeTrigger(f func(Trx, Set) error) *insStatement {
+func (i *InsertStmt) BeforeTrigger(f func(Trx, Set) error) *InsertStmt {
 	i.bif = f
 	return i
 }
-func (i *insStatement) AfterTrigger(f func(Trx, Set) error) *insStatement {
+func (i *InsertStmt) AfterTrigger(f func(Trx, Set) error) *InsertStmt {
 	i.aft = f
 	return i
 }
 
-type selStatement struct {
+type SelectStmt struct {
 	b     *basicFlatFile
 	from  interface{}
 	where *predicate
 }
 
-func (s *selStatement) From(f interface{}) *selStatement {
+func (s *SelectStmt) From(f interface{}) *SelectStmt {
 	s.from = f
 	return s
 }
-func (s *selStatement) Where(p *predicate) *selStatement {
+func (s *SelectStmt) Where(p *predicate) *SelectStmt {
 	s.where = p
 	return s
 }
-func (s *selStatement) AllRows() ([]Set, error) {
+func (s *SelectStmt) AllRows() ([]Set, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -102,7 +102,7 @@ func (s *selStatement) AllRows() ([]Set, error) {
 		var data []Set
 
 		switch vsfrom := s.from.(type) {
-		case *selStatement:
+		case *SelectStmt:
 			data, err = vsfrom.AllRows()
 			if err != nil {
 				return nil, feedErr(err, 1)
@@ -164,27 +164,27 @@ func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
 	return ve, nil
 }
 
-type updStatement struct {
+type UpdateStmt struct {
 	b     *basicFlatFile
 	where *predicate
 	bif   func(Trx, Set, Set) error
 	aft   func(Trx, Set) error
 }
 
-func (u *updStatement) Where(p *predicate) *updStatement {
+func (u *UpdateStmt) Where(p *predicate) *UpdateStmt {
 	u.where = p
 	return u
 }
-func (u *updStatement) BeforeTrigger(f func(Trx, Set, Set) error) *updStatement {
+func (u *UpdateStmt) BeforeTrigger(f func(Trx, Set, Set) error) *UpdateStmt {
 	u.bif = f
 	return u
 }
-func (u *updStatement) AfterTrigger(f func(Trx, Set) error) *updStatement {
+func (u *UpdateStmt) AfterTrigger(f func(Trx, Set) error) *UpdateStmt {
 	u.aft = f
 	return u
 }
 
-func (u *updStatement) Set(s Set) (int, error) {
+func (u *UpdateStmt) Set(s Set) (int, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -246,7 +246,7 @@ func (u *updStatement) Set(s Set) (int, error) {
 	return num, nil
 }
 
-func (u *updStatement) Add(s Set) (int, error) {
+func (u *UpdateStmt) Add(s Set) (int, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -313,21 +313,21 @@ func (u *updStatement) Add(s Set) (int, error) {
 	return num, nil
 }
 
-type delStatement struct {
+type DeleteStmt struct {
 	b     *basicFlatFile
 	where *predicate
 	bif   func(Trx, Set) error
 }
 
-func (u *delStatement) Where(p *predicate) *delStatement {
+func (u *DeleteStmt) Where(p *predicate) *DeleteStmt {
 	u.where = p
 	return u
 }
-func (u *delStatement) BeforeTrigger(f func(Trx, Set) error) *delStatement {
+func (u *DeleteStmt) BeforeTrigger(f func(Trx, Set) error) *DeleteStmt {
 	u.bif = f
 	return u
 }
-func (u *delStatement) Row() (int, error) {
+func (u *DeleteStmt) Row() (int, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -363,7 +363,7 @@ func (u *delStatement) Row() (int, error) {
 	u.b.stats.Deleted = u.b.stats.Deleted + num
 	return num, nil
 }
-func (u *delStatement) Key(k ...Key) (int, error) {
+func (u *DeleteStmt) Key(k ...Key) (int, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -446,7 +446,7 @@ START:
 	aft func(Trx, Set) error
 }*/
 
-//updStatement interface
+//UpdateStmt interface
 
 // func (b *basicFlatFile) read(v *View) ([]Set, error) {
 // 	var (

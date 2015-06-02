@@ -69,7 +69,7 @@ func ExampleTrx_Delete() {
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		data, err := tr.Delete().Where(goflat.KeyTerm("id").Equal(goflat.IntTerm(int64(5)))).Row()
+		data, err := tr.Delete().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5)))).Row()
 		_ = data			
 		return err
 	}); err != nil {

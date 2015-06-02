@@ -44,10 +44,10 @@ type Config struct {
 	Locking ConControl
 }
 
-type StatementType int
+type statementType int
 
 const (
-	sELECT StatementType = iota
+	sELECT statementType = iota
 	iNSERT
 	uPDATE
 	dELETE
@@ -58,7 +58,7 @@ const (
 // cumulative session statistics
 type Stats struct {
 	// last executed statement
-	LastStatement  StatementType
+	LastStatement  statementType
 	StatementError error
 	// number of records processed in session transactions
 	Inserted, Updated, Deleted int

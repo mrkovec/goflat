@@ -144,7 +144,7 @@ func (d *drec) unmarshalAll() (Record, error) {
 	return d.sloth, nil
 }*/
 
-func (c ConControl) String() string {
+/*func (c ConControl) String() string {
 	switch c {
 	case OPTIMISTIC:
 		return "optimistic"
@@ -155,7 +155,7 @@ func (c ConControl) String() string {
 	default:
 		return "unknown"
 	}
-}
+}*/
 
 /*
 func (b basicFlatFile) String() string {
@@ -169,7 +169,7 @@ func (b *basicFlatFile) String() string {
 	return fmt.Sprintf("[%v:%s] transaction %s in %v (waited:%v, restarted:%v), rows inserted:%v updated:%v deleted:%v", b.id, b.user, b.stats.LastStatement, b.stats.Duration, b.stats.Waited, statNumber(b.stats.Restarts), statNumber(b.stats.Inserted), statNumber(b.stats.Updated), statNumber(b.stats.Deleted))
 }
 
-func (o StatementType) String() string {
+func (o statementType) String() string {
 	switch o {
 	case sELECT:
 		return "select"
@@ -192,7 +192,7 @@ func (o StatementType) String() string {
 type byteSize float64
 
 const (
-	_            = iota // ignore first value by assigning to blank identifier
+	xx            = iota  
 	bKB byteSize = 1 << (10 * iota)
 	bMB
 	bGB

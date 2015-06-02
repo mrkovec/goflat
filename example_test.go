@@ -31,7 +31,7 @@ func Example() {
 		if !e {
 			return pkErr
 		}
-		pred := goflat.KeyTerm("table").Equal(goflat.StringTerm("dept")).And(goflat.KeyTerm("dept_no").Equal(goflat.IntTerm(deptNo)))
+		pred := goflat.KeyTerm("table").Equals(goflat.StringTerm("dept")).And(goflat.KeyTerm("dept_no").Equals(goflat.IntTerm(deptNo)))
 		d, err := t.Select().Where(pred).AllRows()
 		if len(d) > 1 {
 			return pkErr
@@ -46,7 +46,7 @@ func Example() {
 		if !e {
 			return fkErr
 		}
-		pred := goflat.KeyTerm("table").Equal(goflat.StringTerm("dept")).And(goflat.KeyTerm("dept_no").Equal(goflat.IntTerm(deptNo)))
+		pred := goflat.KeyTerm("table").Equals(goflat.StringTerm("dept")).And(goflat.KeyTerm("dept_no").Equals(goflat.IntTerm(deptNo)))
 		d, err := t.Select().Where(pred).AllRows()
 		if len(d) == 0 {
 			return fkErr
@@ -66,13 +66,13 @@ func Example() {
 	}
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		dData, err := tr.Select().Where(goflat.KeyTerm("table").Equal(goflat.StringTerm("dept")).And(goflat.KeyTerm("active").Equal(goflat.BoolTerm(true)))).AllRows()
+		dData, err := tr.Select().Where(goflat.KeyTerm("table").Equals(goflat.StringTerm("dept")).And(goflat.KeyTerm("active").Equals(goflat.BoolTerm(true)))).AllRows()
 		if err != nil {
 			return err
 		}
 		for _, dept := range dData {
 			deptNo := dept["dept_no"].(int64)
-			eData, err := tr.Select().Where(goflat.KeyTerm("table").Equal(goflat.StringTerm("emp")).And(goflat.KeyTerm("xdept_no").Equal(goflat.IntTerm(deptNo)))).AllRows()
+			eData, err := tr.Select().Where(goflat.KeyTerm("table").Equals(goflat.StringTerm("emp")).And(goflat.KeyTerm("xdept_no").Equals(goflat.IntTerm(deptNo)))).AllRows()
 			if err != nil {
 				return err
 			}
