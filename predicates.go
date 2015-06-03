@@ -67,16 +67,44 @@ func (a *Term) Null() *Predicate {
 func (a *Term) NotNull() *Predicate {
 	return &Predicate{a: a, b: nil, f: f_nnil}
 }
+
+
 // StringEval is a perator that runs user defined func(string, string) bool on operator a and b
 func (a *Term) StringEval(b *Term, fe func(string, string) bool) *Predicate {
+	var f_fe func(a *Term, b *Term, d kvUnmarsh) interface{}
+	f_fe = func(a *Term, b *Term, d kvUnmarsh) interface{} {
+		if a.val != nil && b.val != nil || fe == nil {		
+			va, ka := a.val.(Key)
+			if ka {
+				ra, err := d.unmarshal(va)
+				if err != nil {
+					return nil
+				}
+				c := &Term{val: ra}
+				return f_fe(c, b, d)
 
-	sa, ea := a.val.(string)
-	sb, eb := b.val.(string)
-	
-	if !ea || !eb || fe == nil{
-		return &Predicate{a: a, b: b, f: func(*Term, *Term, kvUnmarsh) interface{} {return nil}}
+			}
+			vb, kb := b.val.(Key)
+			if kb {
+				rb, err := d.unmarshal(vb)
+				if err != nil {
+					return nil
+				}
+				c := &Term{val: rb}
+				return f_fe(a, c, d)
+			}
+
+			sa, ea := a.val.(string)
+			sb, eb := b.val.(string)
+			if !ea || !eb {
+				return nil
+			}
+			return fe(sa, sb)
+		}
+		return nil
 	}
-	return &Predicate{a: a, b: b, f: func(*Term, *Term, kvUnmarsh) interface{} {return fe(sa, sb)}}
+
+	return &Predicate{a: a, b: b, f: f_fe}
 }
 
 // Predicate represents a single predicate in where clause 
@@ -147,8 +175,7 @@ func f_eq(a *Term, b *Term, d kvUnmarsh) interface{} {
 		case string:
 			switch vb := b.val.(type) {
 			case string:
-				//UTF-8 strings, are equal under Unicode case-folding.
-				return va == vb //strings.EqualFold(va, vb)
+				return va == vb 
 			default:
 				return nil
 			}
@@ -214,7 +241,6 @@ func f_neq(a *Term, b *Term, d kvUnmarsh) interface{} {
 		case string:
 			switch vb := b.val.(type) {
 			case string:
-				//return !strings.EqualFold(va, vb)
 				return va != vb
 			default:
 				return nil

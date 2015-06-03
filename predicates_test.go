@@ -65,7 +65,20 @@ var termTests = []struct {
 		b: StringTerm("Text"),
 		data: nil,
 		result: map[string]interface{}{"Equals": false, "NotEquals": true, "Greater": true, "GreaterEqual": true, "Less": false, "LessEqual": false, "Null": false, "NotNull": true, "StringEval_EqualFold": true },
-	},		
+	},	
+	{
+		a: KeyTerm("name"),
+		b: StringTerm("john"),
+		data: Set{"name": "JOHN"},
+		result: map[string]interface{}{"Equals": false, "NotEquals": true, "Greater": false, "GreaterEqual": false, "Less": true, "LessEqual": true, "Null": false, "NotNull": true, "StringEval_EqualFold": true },
+	},	
+	{
+		a: &Term{},
+		b: IntTerm(1),
+		data: nil,
+		result: map[string]interface{}{"Equals": nil, "NotEquals": nil, "Greater": nil, "GreaterEqual": nil, "Less": nil, "LessEqual": nil, "Null": true, "NotNull": false, "StringEval_EqualFold": nil },
+	},
+
 }
 
 func TestEquals(t *testing.T){
