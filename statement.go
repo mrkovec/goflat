@@ -30,7 +30,7 @@ func (b *basicFlatFile) Delete(s *Statement) *DeleteStmt {
 type Statement struct {
 	b     *basicFlatFile
 	from  interface{}
-	where *predicate
+	where *Predicate
 }
 
 func NewStatement() *Statement {
@@ -44,7 +44,7 @@ func (s *Statement) From(f interface{}) *Statement {
 }
 
 // Where clause specifies which Sets to retrieve
-func (s *Statement) Where(p *predicate) *Statement {
+func (s *Statement) Where(p *Predicate) *Statement {
 	s.where = p
 	return s
 }
@@ -228,7 +228,7 @@ func (s *SelectStmt) First() (Set, error) {
 	return nil, nil
 }
 
-func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
+func evalPredic(p *Predicate, d kvUnmarsh) (bool, error) {
 	if p == nil {
 		return true, nil
 	}
@@ -239,7 +239,7 @@ func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
 	}
 	ve, ex := e.(bool)
 	if !ex {
-		return false, fmt.Errorf("invalid predicate result: %v", e)
+		return false, fmt.Errorf("invalid Predicate result: %v", e)
 	}
 	return ve, nil
 }

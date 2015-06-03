@@ -2,82 +2,104 @@ package goflat
 
 import (
 	//"fmt"
-	"strings"
+	//"strings"
 	"time"
 )
 
-type term struct {
+// Term represents a single term in a predicate
+type Term struct {
 	val interface{}
 }
 
-func BoolTerm(i bool) *term {
-	return &term{val: i}
+func BoolTerm(i bool) *Term {
+	return &Term{val: i}
 }
-func IntTerm(i int64) *term {
-	return &term{val: i}
+func IntTerm(i int64) *Term {
+	return &Term{val: i}
 }
-func FloatTerm(i float64) *term {
-	return &term{val: i}
+func FloatTerm(i float64) *Term {
+	return &Term{val: i}
 }
-func StringTerm(i string) *term {
-	return &term{val: i}
+func StringTerm(i string) *Term {
+	return &Term{val: i}
 }
-func TimeTerm(i time.Time) *term {
-	return &term{val: i}
+func TimeTerm(i time.Time) *Term {
+	return &Term{val: i}
 }
-func KeyTerm(k interface{}) *term {
+func KeyTerm(k interface{}) *Term {
 	switch vk := k.(type) {
 	case string:
-		return &term{val: Key(vk)}
+		return &Term{val: Key(vk)}
 	case Key:
-		return &term{val: vk}
+		return &Term{val: vk}
 	}
 	return nil
 }
+// Equals is a rational perator: a == b
+func (a *Term) Equals(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_eq}
+}
+// NotEquals is a rational perator: a != b
+func (a *Term) NotEquals(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_neq}
+}
+// Greater is a rational perator: a > b
+func (a *Term) Greater(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_gr}
+}
+// GreaterEqual is a rational perator: a >= b
+func (a *Term) GreaterEqual(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_greq}
+}
+// Less is a rational perator: a < b
+func (a *Term) Less(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_ls}
+}
+// LessEqual is a rational perator: a <= b
+func (a *Term) LessEqual(b *Term) *Predicate {
+	return &Predicate{a: a, b: b, f: f_lseq}
+}
+// Null is a rational perator: a == nil
+func (a *Term) Null() *Predicate {
+	return &Predicate{a: a, b: nil, f: f_nil}
+}
+// NotNull is a rational perator: a != nil
+func (a *Term) NotNull() *Predicate {
+	return &Predicate{a: a, b: nil, f: f_nnil}
+}
+// StringEval is a perator that runs user defined func(string, string) bool on operator a and b
+func (a *Term) StringEval(b *Term, fe func(string, string) bool) *Predicate {
 
-func (a *term) Equals(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_eq}
-}
-func (a *term) NotEquals(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_neq}
-}
-func (a *term) Greater(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_gr}
-}
-func (a *term) GreaterEqual(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_greq}
-}
-func (a *term) Less(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_ls}
-}
-func (a *term) LessEqual(b *term) *predicate {
-	return &predicate{a: a, b: b, f: f_lseq}
-}
-func (a *term) Null() *predicate {
-	return &predicate{a: a, b: nil, f: f_nil}
-}
-func (a *term) NotNull() *predicate {
-	return &predicate{a: a, b: nil, f: f_nnil}
+	sa, ea := a.val.(string)
+	sb, eb := b.val.(string)
+	
+	if !ea || !eb || fe == nil{
+		return &Predicate{a: a, b: b, f: func(*Term, *Term, kvUnmarsh) interface{} {return nil}}
+	}
+	return &Predicate{a: a, b: b, f: func(*Term, *Term, kvUnmarsh) interface{} {return fe(sa, sb)}}
 }
 
-type predicate struct {
-	a *term
-	b *term
-	f func(*term, *term, kvUnmarsh) interface{}
+// Predicate represents a single predicate in where clause 
+type Predicate struct {
+	a *Term
+	b *Term
+	f func(*Term, *Term, kvUnmarsh) interface{}
+
+}
+// And is a logical operator: a && b
+func (a *Predicate) And(b *Predicate) *Predicate {
+	return &Predicate{a: &Term{val: a}, b: &Term{val: b}, f: f_a}
+}
+// Or is a logical operator: a || b
+func (a *Predicate) Or(b *Predicate) *Predicate {
+	return &Predicate{a: &Term{val: a}, b: &Term{val: b}, f: f_o}
+}
+// Not is a logical operator: !a 
+func Not(b *Predicate) *Predicate {
+	return &Predicate{a: nil, b: &Term{val: b}, f: f_n}
 }
 
-func (a *predicate) And(b *predicate) *predicate {
-	return &predicate{a: &term{val: a}, b: &term{val: b}, f: f_a}
-}
-func (a *predicate) Or(b *predicate) *predicate {
-	return &predicate{a: &term{val: a}, b: &term{val: b}, f: f_o}
-}
-
-func Not(b *predicate) *predicate {
-	return &predicate{a: nil, b: &term{val: b}, f: f_n}
-}
-
-func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
+func f_eq(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -87,7 +109,7 @@ func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
+			c := &Term{val: ra}
 			return f_eq(c, b, d)
 		}
 		vb, kb := b.val.(Key)
@@ -96,7 +118,7 @@ func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
+			c := &Term{val: rb}
 			return f_eq(a, c, d)
 		}
 
@@ -126,7 +148,7 @@ func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
 			switch vb := b.val.(type) {
 			case string:
 				//UTF-8 strings, are equal under Unicode case-folding.
-				return strings.EqualFold(va, vb)
+				return va == vb //strings.EqualFold(va, vb)
 			default:
 				return nil
 			}
@@ -144,7 +166,7 @@ func f_eq(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
+func f_neq(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -154,7 +176,7 @@ func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
+			c := &Term{val: ra}
 			return f_neq(c, b, d)
 		}
 		vb, kb := b.val.(Key)
@@ -163,7 +185,7 @@ func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
+			c := &Term{val: rb}
 			return f_neq(a, c, d)
 		}
 
@@ -192,7 +214,8 @@ func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
 		case string:
 			switch vb := b.val.(type) {
 			case string:
-				return !strings.EqualFold(va, vb)
+				//return !strings.EqualFold(va, vb)
+				return va != vb
 			default:
 				return nil
 			}
@@ -210,7 +233,7 @@ func f_neq(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_gr(a *term, b *term, d kvUnmarsh) interface{} {
+func f_gr(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -220,8 +243,8 @@ func f_gr(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
-			return f_eq(c, b, d)
+			c := &Term{val: ra}
+			return f_gr(c, b, d)
 		}
 		vb, kb := b.val.(Key)
 		if kb {
@@ -229,8 +252,8 @@ func f_gr(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
-			return f_eq(a, c, d)
+			c := &Term{val: rb}
+			return f_gr(a, c, d)
 		}
 
 		switch va := a.val.(type) {
@@ -269,7 +292,7 @@ func f_gr(a *term, b *term, d kvUnmarsh) interface{} {
 	}
 	return nil
 }
-func f_greq(a *term, b *term, d kvUnmarsh) interface{} {
+func f_greq(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -279,8 +302,8 @@ func f_greq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
-			return f_eq(c, b, d)
+			c := &Term{val: ra}
+			return f_greq(c, b, d)
 		}
 		vb, kb := b.val.(Key)
 		if kb {
@@ -288,8 +311,8 @@ func f_greq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
-			return f_eq(a, c, d)
+			c := &Term{val: rb}
+			return f_greq(a, c, d)
 		}
 
 		switch va := a.val.(type) {
@@ -329,7 +352,7 @@ func f_greq(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_ls(a *term, b *term, d kvUnmarsh) interface{} {
+func f_ls(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -339,8 +362,8 @@ func f_ls(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
-			return f_eq(c, b, d)
+			c := &Term{val: ra}
+			return f_ls(c, b, d)
 		}
 		vb, kb := b.val.(Key)
 		if kb {
@@ -348,8 +371,8 @@ func f_ls(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
-			return f_eq(a, c, d)
+			c := &Term{val: rb}
+			return f_ls(a, c, d)
 		}
 
 		switch va := a.val.(type) {
@@ -389,7 +412,7 @@ func f_ls(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_lseq(a *term, b *term, d kvUnmarsh) interface{} {
+func f_lseq(a *Term, b *Term, d kvUnmarsh) interface{} {
 
 	if a.val != nil && b.val != nil {
 
@@ -399,8 +422,8 @@ func f_lseq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: ra}
-			return f_eq(c, b, d)
+			c := &Term{val: ra}
+			return f_lseq(c, b, d)
 		}
 		vb, kb := b.val.(Key)
 		if kb {
@@ -408,8 +431,8 @@ func f_lseq(a *term, b *term, d kvUnmarsh) interface{} {
 			if err != nil {
 				return nil
 			}
-			c := &term{val: rb}
-			return f_eq(a, c, d)
+			c := &Term{val: rb}
+			return f_lseq(a, c, d)
 		}
 
 		switch va := a.val.(type) {
@@ -449,7 +472,7 @@ func f_lseq(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_nil(a *term, b *term, d kvUnmarsh) interface{} {
+func f_nil(a *Term, b *Term, d kvUnmarsh) interface{} {
 	if a.val == nil {
 		return true
 	}
@@ -466,7 +489,7 @@ func f_nil(a *term, b *term, d kvUnmarsh) interface{} {
 	}
 	return false
 }
-func f_nnil(a *term, b *term, d kvUnmarsh) interface{} {
+func f_nnil(a *Term, b *Term, d kvUnmarsh) interface{} {
 	if a.val == nil {
 		return false
 	}
@@ -483,13 +506,13 @@ func f_nnil(a *term, b *term, d kvUnmarsh) interface{} {
 	return true
 }
 
-func f_a(a *term, b *term, d kvUnmarsh) interface{} {
+func f_a(a *Term, b *Term, d kvUnmarsh) interface{} {
 	if a.val != nil && b.val != nil {
-		va, e := a.val.(*predicate)
+		va, e := a.val.(*Predicate)
 		if !e {
 			return nil
 		}
-		vb, e := b.val.(*predicate)
+		vb, e := b.val.(*Predicate)
 		if !e {
 			return nil
 		}
@@ -513,13 +536,13 @@ func f_a(a *term, b *term, d kvUnmarsh) interface{} {
 	}
 	return nil
 }
-func f_o(a *term, b *term, d kvUnmarsh) interface{} {
+func f_o(a *Term, b *Term, d kvUnmarsh) interface{} {
 	if a.val != nil && b.val != nil {
-		va, e := a.val.(*predicate)
+		va, e := a.val.(*Predicate)
 		if !e {
 			return nil
 		}
-		vb, e := b.val.(*predicate)
+		vb, e := b.val.(*Predicate)
 		if !e {
 			return nil
 		}
@@ -540,9 +563,9 @@ func f_o(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func f_n(a *term, b *term, d kvUnmarsh) interface{} {
+func f_n(a *Term, b *Term, d kvUnmarsh) interface{} {
 	if b.val != nil {
-		vb, e := b.val.(*predicate)
+		vb, e := b.val.(*Predicate)
 		if !e {
 			return nil
 		}
@@ -558,6 +581,6 @@ func f_n(a *term, b *term, d kvUnmarsh) interface{} {
 	return nil
 }
 
-func (p *predicate) eval(d kvUnmarsh) interface{} {
+func (p *Predicate) eval(d kvUnmarsh) interface{} {
 	return p.f(p.a, p.b, d)
 }

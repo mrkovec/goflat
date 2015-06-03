@@ -1,4 +1,4 @@
-//A flat file NoSQL-like KV database with SQL-like DML syntax
+// Package goflat contains a flat file NoSQL-like KV database with SQL-like DML syntax
 package goflat
 
 // Connector mediates basic database functionality
