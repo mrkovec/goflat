@@ -7,27 +7,28 @@ import (
 	"github.com/mrkovec/goflat"
 )
 
-func ExampleTrx_Select() {
+func ExampleSelectStmt() {
 	db := goflat.NewConnector()
-	session, err := db.Connect("test", "user/pasword")
+	session, err := db.Connect("test.dtb", "user")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		data, err := tr.Select().Where(goflat.KeyTerm("id").Equal(goflat.IntTerm(int64(5)))).AllRows()
-		_ = data			
+		data, err := tr.Select(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5))))).All()
+		_ = data
 		return err
 	}); err != nil {
 		log.Print(err)
+		return
 	}
+	log.Print(session)
+}
 
-} 
-
-func ExampleTrx_Insert() {
+func ExampleInsertStmt() {
 	db := goflat.NewConnector()
-	session, err := db.Connect("test", "user/pasword")
+	session, err := db.Connect("test.dtb", "user")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,42 +39,45 @@ func ExampleTrx_Insert() {
 		return err
 	}); err != nil {
 		log.Print(err)
+		return
 	}
+	log.Print(session)
+}
 
-} 
-
-func ExampleTrx_Update() {
+func ExampleUpdateStmt() {
 	db := goflat.NewConnector()
-	session, err := db.Connect("test", "user/pasword")
+	session, err := db.Connect("test.dtb", "user")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		rowsUpdated, err := tr.Update().Where(goflat.KeyTerm("timestamp").Less(goflat.TimeTerm(time.Now()))).Set(goflat.Set{"timestamp": time.Now()})
-		_ = rowsUpdated			
+		rowsUpdated, err := tr.Update(goflat.NewStatement().Where(goflat.KeyTerm("timestamp").Less(goflat.TimeTerm(time.Now())))).Set(goflat.Set{"timestamp": time.Now()})
+		_ = rowsUpdated
 		return err
 	}); err != nil {
 		log.Print(err)
+		return
 	}
-
-} 
+	log.Print(session)
+}
 
 func ExampleDeleteStmt() {
 	db := goflat.NewConnector()
-	session, err := db.Connect("test", "user/pasword")
+	session, err := db.Connect("test.dtb", "user")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		data, err := tr.Delete().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5)))).Row()
-		_ = data			
+		data, err := tr.Delete(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5))))).All()
+		_ = data
 		return err
 	}); err != nil {
 		log.Print(err)
+		return
 	}
-
-} 
+	log.Print(session)
+}

@@ -20,11 +20,11 @@ type Trx interface {
 	// Initiates a new insert statement
 	Insert() *InsertStmt
 	// Initiates a new select statement
-	Select() *SelectStmt
+	Select(*Statement) *SelectStmt
 	// Initiates a new update statement
-	Update() *UpdateStmt
+	Update(*Statement) *UpdateStmt
 	// Initiates a new delete statement
-	Delete() *DeleteStmt
+	Delete(*Statement) *DeleteStmt
 }
 
 // Set is a key:value data set

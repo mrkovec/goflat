@@ -75,12 +75,12 @@ type Stats struct {
 
 type basicFlatFile struct {
 	//db params
-	dbConn      *connector
-	dbFilename  string
-	hdrFilename string
-	dbLock      chan struct{}
-	dbVer       *flatFileVer
-	lastVer     int
+	dbConn     *connector
+	dbFilename string
+	//hdrFilename string
+	dbLock  chan struct{}
+	dbVer   *flatFileVer
+	lastVer int
 	sync.Mutex
 
 	//session params
@@ -146,8 +146,9 @@ func (c *connector) Connect(db, user string) (Session, error) {
 	} else {
 		c.ses = sp.(*basicFlatFile)
 	}
-	c.ses.dbFilename = db + ".dtb"
-	c.ses.hdrFilename = db + ".hdr"
+	//c.ses.dbFilename = db + ".dtb"
+	c.ses.dbFilename = db
+	//c.ses.hdrFilename = db + ".hdr"
 	c.ses.dbLock = fl
 	c.ses.dbVer = fv
 	h := fnv.New32a()

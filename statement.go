@@ -11,32 +11,66 @@ import (
 )
 
 func (b *basicFlatFile) Insert() *InsertStmt {
-	return &InsertStmt{b: b, bif: nil, aft: nil}
+	return &InsertStmt{Statement: &Statement{b: b, from: nil, where: nil}, bif: nil, aft: nil}
 }
-func (b *basicFlatFile) Select() *SelectStmt {
-	return &SelectStmt{b: b, from: nil, where: nil}
+func (b *basicFlatFile) Select(s *Statement) *SelectStmt {
+	s.b = b
+	return &SelectStmt{Statement: s}
 }
-func (b *basicFlatFile) Update() *UpdateStmt {
-	return &UpdateStmt{b: b, bif: nil, aft: nil}
+func (b *basicFlatFile) Update(s *Statement) *UpdateStmt {
+	s.b = b
+	return &UpdateStmt{Statement: s, bif: nil, aft: nil}
 }
-func (b *basicFlatFile) Delete() *DeleteStmt {
-	return &DeleteStmt{b: b, bif: nil}
+func (b *basicFlatFile) Delete(s *Statement) *DeleteStmt {
+	s.b = b
+	return &DeleteStmt{Statement: s, bif: nil}
 }
 
-/*func (b *basicFlatFile) Update(viewName string, args ...Value, set Set) (int, error) {
-	d, err :=  b.Select(viewName, args...)
-	if err != nil {
-		return 0, feedErr(err, 1)
-	}
+// Statement is basis for a DML statement
+type Statement struct {
+	b     *basicFlatFile
+	from  interface{}
+	where *predicate
+}
 
-	return 0, nil
-}*/
+func NewStatement() *Statement {
+	return &Statement{b: nil, from: nil, where: nil}
+}
+
+// From clause assigns data to be read
+func (s *Statement) From(f interface{}) *Statement {
+	s.from = f
+	return s
+}
+
+// Where clause specifies which Sets to retrieve
+func (s *Statement) Where(p *predicate) *Statement {
+	s.where = p
+	return s
+}
+
+// InsertStmt defines a insert statement
 type InsertStmt struct {
-	b   *basicFlatFile
+	*Statement
 	bif func(Trx, Set) error
 	aft func(Trx, Set) error
 }
 
+// BeforeTrigger assigns a trigger which will be executed before the insert statemnet
+// in before triger you can modify the inserted Set or prevent the specific Set to be inserted or cancel whole insert statement
+func (i *InsertStmt) BeforeTrigger(f func(Trx, Set) error) *InsertStmt {
+	i.bif = f
+	return i
+}
+
+// AfterTrigger assigns a trigger which will be executed after the insert statemnet
+// in after triger you can not modify the inserted Set
+func (i *InsertStmt) AfterTrigger(f func(Trx, Set) error) *InsertStmt {
+	i.aft = f
+	return i
+}
+
+// Values inserts provided Sets into database
 func (i *InsertStmt) Values(r ...Set) error {
 	var err error
 
@@ -46,18 +80,22 @@ func (i *InsertStmt) Values(r ...Set) error {
 			if err != nil {
 				return feedErr(err, 1)
 			}
+			if err = i.b.encodeData(or); err != nil {
+				return feedErr(err, 2)
+			}
 		}
-	}
-
-	if err = i.b.encodeData(r...); err != nil {
-		return feedErr(err, 2)
+	} else {
+		//bulk insert
+		if err = i.b.encodeData(r...); err != nil {
+			return feedErr(err, 3)
+		}
 	}
 
 	if i.aft != nil {
 		for _, or := range r {
 			err = i.aft(i.b, or)
 			if err != nil {
-				return feedErr(err, 3)
+				return feedErr(err, 4)
 			}
 		}
 	}
@@ -66,30 +104,14 @@ func (i *InsertStmt) Values(r ...Set) error {
 	i.b.needStore = true
 	return nil
 }
-func (i *InsertStmt) BeforeTrigger(f func(Trx, Set) error) *InsertStmt {
-	i.bif = f
-	return i
-}
-func (i *InsertStmt) AfterTrigger(f func(Trx, Set) error) *InsertStmt {
-	i.aft = f
-	return i
-}
 
+// InsertStmt defines a select statement
 type SelectStmt struct {
-	b     *basicFlatFile
-	from  interface{}
-	where *predicate
+	*Statement
 }
 
-func (s *SelectStmt) From(f interface{}) *SelectStmt {
-	s.from = f
-	return s
-}
-func (s *SelectStmt) Where(p *predicate) *SelectStmt {
-	s.where = p
-	return s
-}
-func (s *SelectStmt) AllRows() ([]Set, error) {
+// All reads all Sets from database which fulfills statements parameters
+func (s *SelectStmt) All() ([]Set, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -102,15 +124,15 @@ func (s *SelectStmt) AllRows() ([]Set, error) {
 		var data []Set
 
 		switch vsfrom := s.from.(type) {
-		case *SelectStmt:
-			data, err = vsfrom.AllRows()
+		case *Statement:
+			data, err = s.b.Select(vsfrom).All()
 			if err != nil {
 				return nil, feedErr(err, 1)
 			}
 		case []Set:
 			data = vsfrom
 		default:
-			return nil, feedErr(fmt.Errorf("invalid from parameter"), 2)
+			return nil, feedErr(fmt.Errorf("invalid from parameter %s", vsfrom), 2)
 		}
 
 		for _, os := range data {
@@ -148,6 +170,64 @@ func (s *SelectStmt) AllRows() ([]Set, error) {
 	return c, nil
 }
 
+// First returns first Sets from database which fulfills statements parameters
+func (s *SelectStmt) First() (Set, error) {
+	var (
+		err error
+		d   kvUnmarsh
+		nr  Set
+		ve  bool
+	)
+	if s.from != nil {
+		var data []Set
+
+		switch vsfrom := s.from.(type) {
+		case *Statement:
+			data, err = s.b.Select(vsfrom).All()
+			if err != nil {
+				return nil, feedErr(err, 1)
+			}
+		case []Set:
+			data = vsfrom
+		default:
+			return nil, feedErr(fmt.Errorf("invalid from parameter %s", vsfrom), 2)
+		}
+
+		for _, os := range data {
+			ve, err = evalPredic(s.where, os)
+			if err != nil {
+				return nil, feedErr(err, 3)
+			}
+			if ve {
+				nr, err = os.unmarshalAll()
+				if err != nil {
+					return nil, feedErr(err, 4)
+				}
+				return nr, nil
+			}
+		}
+
+	} else {
+
+		for _, os := range s.b.data {
+			d = &recDec{data: os}
+			ve, err = evalPredic(s.where, d)
+			if err != nil {
+				return nil, feedErr(err, 5)
+			}
+			if ve {
+				nr, err = d.unmarshalAll()
+				if err != nil {
+					return nil, feedErr(err, 6)
+				}
+				return nr, nil
+			}
+
+		}
+	}
+	return nil, nil
+}
+
 func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
 	if p == nil {
 		return true, nil
@@ -165,16 +245,11 @@ func evalPredic(p *predicate, d kvUnmarsh) (bool, error) {
 }
 
 type UpdateStmt struct {
-	b     *basicFlatFile
-	where *predicate
-	bif   func(Trx, Set, Set) error
-	aft   func(Trx, Set) error
+	*Statement
+	bif func(Trx, Set, Set) error
+	aft func(Trx, Set) error
 }
 
-func (u *UpdateStmt) Where(p *predicate) *UpdateStmt {
-	u.where = p
-	return u
-}
 func (u *UpdateStmt) BeforeTrigger(f func(Trx, Set, Set) error) *UpdateStmt {
 	u.bif = f
 	return u
@@ -314,20 +389,15 @@ func (u *UpdateStmt) Add(s Set) (int, error) {
 }
 
 type DeleteStmt struct {
-	b     *basicFlatFile
-	where *predicate
-	bif   func(Trx, Set) error
+	*Statement
+	bif func(Trx, Set) error
 }
 
-func (u *DeleteStmt) Where(p *predicate) *DeleteStmt {
-	u.where = p
-	return u
-}
 func (u *DeleteStmt) BeforeTrigger(f func(Trx, Set) error) *DeleteStmt {
 	u.bif = f
 	return u
 }
-func (u *DeleteStmt) Row() (int, error) {
+func (u *DeleteStmt) All() (int, error) {
 	var (
 		err error
 		d   kvUnmarsh
@@ -363,6 +433,7 @@ func (u *DeleteStmt) Row() (int, error) {
 	u.b.stats.Deleted = u.b.stats.Deleted + num
 	return num, nil
 }
+
 func (u *DeleteStmt) Key(k ...Key) (int, error) {
 	var (
 		err error
@@ -407,19 +478,11 @@ START:
 						}
 					}
 
-					//delete(os, key)
-					//fmt.Printf("%v %v\n", di, len(u.b.data[i]))
-					/*u.b.data[i][di], u.b.data[i][len(u.b.data[i])-1], u.b.data[i] = u.b.data[i][len(u.b.data[i])-1], nil, u.b.data[i][:len(u.b.data[i])-1]
-					fmt.Println("a")
-					u.b.data[i][di], u.b.data[i][len(u.b.data[i])-1], u.b.data[i] = u.b.data[i][len(u.b.data[i])-1], nil, u.b.data[i][:len(u.b.data[i])-1]
-					//u.b.data[i][di+1], u.b.data[i][len(u.b.data[i])-1], u.b.data[i] = u.b.data[i][len(u.b.data[i])-1], nil, u.b.data[i][:len(u.b.data[i])-1]
-					fmt.Println("b")*/
 					copy(u.b.data[i][di:], u.b.data[i][di+2:])
-					u.b.data[i][len(u.b.data[i])-2] = nil // or the zero value of T
-					u.b.data[i][len(u.b.data[i])-1] = nil // or the zero value of T
+					u.b.data[i][len(u.b.data[i])-2] = nil
+					u.b.data[i][len(u.b.data[i])-1] = nil
 					u.b.data[i] = u.b.data[i][:len(u.b.data[i])-2]
 
-					//fmt.Printf("%v\n", len(u.b.data[i]))
 					u.b.needStore = true
 					ve = true
 
@@ -438,77 +501,3 @@ START:
 	u.b.stats.Deleted = u.b.stats.Deleted + num
 	return num, nil
 }
-
-/*type statement struct {
-	b *basicFlatFile
-	t StatementType
-	bif func(Trx, Set) error
-	aft func(Trx, Set) error
-}*/
-
-//UpdateStmt interface
-
-// func (b *basicFlatFile) read(v *View) ([]Set, error) {
-// 	var (
-// 		//i int
-// 		d kvUnmarsh
-// 		err error
-// 	)
-// 	c := make([]Set, 0, len(b.data))
-// 	for _, s := range b.data {
-// 		d = &recDec{data:s}
-// 		err = b.eval(v, d, &c)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 	}
-// 	return c, nil
-// }
-
-// func (b *basicFlatFile) eval(v *View, d kvUnmarsh, c *[]Set) error {
-// 	var (
-// 		nr Set
-// 		ex bool
-// 		err error
-// 	)
-// 	nr, ex = v.filter(d)
-// 	if ex {
-// 		ex, err = v.evaulatePredicates(d)
-// 		if err!= nil {
-// 			return err
-// 		}
-// 		if ex {
-// 			if nr != nil {
-// 				//*c = append(*c, nr)
-// 				v.sort(c, nr)
-// 			} else {
-// 				//unmarshal all fields
-// 				nr, err = d.unmarshalAll()
-// 				if err!= nil {
-// 					return err
-// 				}
-// 				//*c = append(*c, nr)
-// 				v.sort(c, nr)
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
-
-// func (b *basicFlatFile) Select(viewName string, args ...Value) ([]Set, error) {
-// 	v, err := b.dbConn.view(viewName)
-// 	if err != nil {
-// 		return nil, feedErr(err, 1)
-// 	}
-
-// 	v, err = v.parse(args...)
-// 	if err != nil {
-// 		return nil, feedErr(err, 2)
-// 	}
-// 	/*if v.from != nil {
-// 		return b.join(v), nil
-// 	}*/
-// 	return b.read(v)
-// }
-
-//

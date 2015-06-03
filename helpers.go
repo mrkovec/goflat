@@ -192,7 +192,7 @@ func (o statementType) String() string {
 type byteSize float64
 
 const (
-	xx            = iota  
+	xx           = iota
 	bKB byteSize = 1 << (10 * iota)
 	bMB
 	bGB
