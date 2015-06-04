@@ -10,6 +10,7 @@ Very alpha, but feel free to test it.
 Functionality outline:
 ```go
     //setup
+    goflat.NewEmptyDatabase("test.dtb") 
     db := goflat.NewConnector()
     session, err := db.Connect("test.dtb", "user")
     defer db.Disconnect()
