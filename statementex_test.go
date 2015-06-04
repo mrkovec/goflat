@@ -106,7 +106,7 @@ func ExampleTerm_StringEval(){
 	}
 	log.Print(session)
 }
-func ExampleTerm_StringEval_UserDefinedFunc(){
+func ExampleTerm_StringEval_userDefinedFunc(){
 	db := goflat.NewConnector()
 	session, err := db.Connect("test.dtb", "user")
 	if err != nil {

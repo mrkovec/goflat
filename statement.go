@@ -141,18 +141,18 @@ func (s *SelectStmt) All() ([]Set, error) {
 		case []Set:
 			data = vsfrom
 		default:
-			return nil, feedErr(fmt.Errorf("invalid from parameter %s", vsfrom), 2)
+			return nil, fmt.Errorf("invalid from parameter %s", vsfrom)
 		}
 
 		for _, os := range data {
 			ve, err = evalPredic(s.where, os)
 			if err != nil {
-				return nil, feedErr(err, 3)
+				return nil, feedErr(err, 2)
 			}
 			if ve {
 				nr, err = os.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 4)
+					return nil, feedErr(err, 3)
 				}
 				c = append(c, nr)
 			}
@@ -164,12 +164,12 @@ func (s *SelectStmt) All() ([]Set, error) {
 			d = &recDec{data: os}
 			ve, err = evalPredic(s.where, d)
 			if err != nil {
-				return nil, feedErr(err, 5)
+				return nil, feedErr(err, 4)
 			}
 			if ve {
 				nr, err = d.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 6)
+					return nil, feedErr(err, 5)
 				}
 				c = append(c, nr)
 			}
@@ -199,18 +199,18 @@ func (s *SelectStmt) First() (Set, error) {
 		case []Set:
 			data = vsfrom
 		default:
-			return nil, feedErr(fmt.Errorf("invalid from parameter %s", vsfrom), 2)
+			return nil, fmt.Errorf("invalid from parameter %s", vsfrom)
 		}
 
 		for _, os := range data {
 			ve, err = evalPredic(s.where, os)
 			if err != nil {
-				return nil, feedErr(err, 3)
+				return nil, feedErr(err, 2)
 			}
 			if ve {
 				nr, err = os.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 4)
+					return nil, feedErr(err, 3)
 				}
 				return nr, nil
 			}
@@ -222,12 +222,12 @@ func (s *SelectStmt) First() (Set, error) {
 			d = &recDec{data: os}
 			ve, err = evalPredic(s.where, d)
 			if err != nil {
-				return nil, feedErr(err, 5)
+				return nil, feedErr(err, 4)
 			}
 			if ve {
 				nr, err = d.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 6)
+					return nil, feedErr(err, 5)
 				}
 				return nr, nil
 			}
@@ -362,13 +362,13 @@ func (u *UpdateStmt) Add(s Set) (int, error) {
 					if u.bif != nil {
 						err = u.bif(u.b, nil, map[Key]Value{key: val})
 						if err != nil {
-							return num, feedErr(err, 3)
+							return num, feedErr(err, 2)
 						}
 					}
 
 					nval, err := encodeValue(val)
 					if err != nil {
-						return num, feedErr(err, 4)
+						return num, feedErr(err, 3)
 					}
 
 					s := make([][]byte, 2)
@@ -382,7 +382,7 @@ func (u *UpdateStmt) Add(s Set) (int, error) {
 					if u.aft != nil {
 						err = u.aft(u.b, map[Key]Value{key: val})
 						if err != nil {
-							return num, feedErr(err, 5)
+							return num, feedErr(err, 4)
 						}
 					}
 				}
@@ -430,7 +430,7 @@ func (u *DeleteStmt) All() (int, error) {
 				}
 				err = u.bif(u.b, s)
 				if err != nil {
-					return num, feedErr(err, 2)
+					return num, feedErr(err, 3)
 				}
 			}
 
@@ -483,7 +483,7 @@ START:
 						}
 						err = u.bif(u.b, map[Key]Value{key: v})
 						if err != nil {
-							return num, feedErr(err, 2)
+							return num, feedErr(err, 3)
 						}
 					}
 

@@ -64,14 +64,14 @@ func TestRollback(t *testing.T){
 	}
 	defer db.Disconnect()
 
-	errRollback := errors.New("myRollback")
+	myRollback := errors.New("Rollback")
 	if err = session.Transaction(func(tr Trx) error {
 		err = tr.Insert().Values(Set{"string": "xxx", "number": int64(1), "float": float64(3.14), "boolean": true, "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}})
 		if err != nil {
     		return err
 		}
-		return errRollback
-	}); err != nil && err!= errRollback {
+		return myRollback
+	}); err != nil && err!= myRollback {
     	t.Errorf(err.Error())
 		return
 	}

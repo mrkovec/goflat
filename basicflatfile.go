@@ -187,7 +187,7 @@ func (b *basicFlatFile) load() error {
 
 	f, err := os.OpenFile(b.dbFilename, os.O_RDONLY|os.O_SYNC, os.FileMode(0600))
 	if err != nil {
-		return feedErr(err, 1)
+		return feedErr(err, 2)
 	}
 	defer f.Close()
 
@@ -202,7 +202,7 @@ func (b *basicFlatFile) load() error {
 	dec := gob.NewDecoder(f)
 	err = dec.Decode(&b.data)
 	if err != nil && err != io.EOF {
-		return feedErr(err, 4)
+		return feedErr(err, 3)
 	}
 	return nil
 }
@@ -221,7 +221,7 @@ func (b *basicFlatFile) store() error {
 	enc := gob.NewEncoder(f)
 	err = enc.Encode(b.data)
 	if err != nil {
-		return feedErr(err, 3)
+		return feedErr(err, 2)
 	}
 	b.lastVer = b.dbVer.raise()
 	return nil
@@ -233,16 +233,17 @@ func (b *basicFlatFile) commit() error {
 
 	if b.needStore {
 		switch b.config.Locking {
+		case PESSIMISTIC:
 		case OPTIMISTIC:
 			if b.lastVer != b.dbVer.get() {
 				b.stats.Restarts++
 				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked, 1)
+				return feedErr(errTransBlocked, 3)
 			}
 			if err = b.nowaitlock(); err != nil {
 				b.stats.Restarts++
 				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked, 2)
+				return feedErr(errTransBlocked, 4)
 			}
 		case NOWAIT:
 			if b.lastVer != b.dbVer.get() {
@@ -252,12 +253,12 @@ func (b *basicFlatFile) commit() error {
 				return b.rollback(nil)
 			}
 		default:
-			return feedErr(fmt.Errorf("unknown locking mode"), 3)
+			return fmt.Errorf("unknown locking mode")
 		}
 	}
 
 	if err = b.store(); err != nil {
-		return feedErr(err, 3)
+		return feedErr(err, 6)
 	}
 	return nil
 }
@@ -309,7 +310,7 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 	if err = b.load(); err != nil {
 		//uugly but...
 		if err = b.load(); err != nil {
-			return feedErr(err, 3)
+			return feedErr(err, 2)
 		}
 	}
 
@@ -317,13 +318,13 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 		e, is := err.(*Error)
 		if is {
 			//internal statement error
-			return feedErr(b.rollback(e), 4)
+			return feedErr(b.rollback(e), 3)
 		}
 		//user error == rollback
 		return b.rollback(err)
 	}
 	//commit
-	return feedErr(b.commit(), 3)
+	return feedErr(b.commit(), 4)
 }
 
 func (b *basicFlatFile) nowaitlock() error {
@@ -368,7 +369,7 @@ func (b *basicFlatFile) unlock() (err error) {
 	case <-b.dbLock:
 		return nil
 	default:
-		return feedErr(fmt.Errorf("unlocking and not having lock"), 2)
+		return fmt.Errorf("unlocking and not having lock")
 	}
 
 	return nil
