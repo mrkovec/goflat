@@ -18,8 +18,8 @@ Functionality outline:
     myData := []goflat.Set{goflat.Set{"table": "emp", "name": "John", "id":nil}, goflat.Set{"table": "emp", "name": "Jane", "id":nil}}
     
     myStatement1 := goflat.NewStatement().Where(goflat.KeyTerm("table").Equals(goflat.ValueTerm("emp")))
-    myStatement2 := goflat.NewStatement().From(myStatement1).Where(goflat.KeyTerm("name").Equals(goflat.ValueTerm("John")))
-    
+    myStatement2 := goflat.NewStatement().Where(goflat.KeyTerm("table").Equals(goflat.ValueTerm("emp")).And(goflat.KeyTerm("name").Equals(goflat.ValueTerm("John"))))    
+
     var seq int64
     myTrigger := func(t goflat.Trx, s goflat.Set) error {
         if s["id"] == nil {
