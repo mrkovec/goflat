@@ -2,6 +2,7 @@ package goflat
 
 import (
 	"fmt"
+ 
 	//"unsafe"
 	//"reflect"
 	//"sync"
@@ -9,6 +10,7 @@ import (
 	//"encoding/binary"
 	//"time"
 )
+
 
 func (b *basicFlatFile) Insert() *InsertStmt {
 	return &InsertStmt{Statement: &Statement{b: b, from: nil, where: nil}, bif: nil, aft: nil}
@@ -87,16 +89,16 @@ func (i *InsertStmt) Values(r ...Set) error {
 		for _, or := range r {
 			err = i.bif(i.b, or)
 			if err != nil {
-				return feedErr(err, 1)
-			}
+				return feedErrDetail(err, 1, "insert statement error")
+			} 
 			if err = i.b.encodeData(or); err != nil {
-				return feedErr(err, 2)
+				return feedErrDetail(err, 2, "insert statement error")
 			}
 		}
 	} else {
 		//bulk insert
 		if err = i.b.encodeData(r...); err != nil {
-			return feedErr(err, 3)
+			return feedErrDetail(err, 3, "insert statement error")
 		}
 	}
 
@@ -104,7 +106,7 @@ func (i *InsertStmt) Values(r ...Set) error {
 		for _, or := range r {
 			err = i.aft(i.b, or)
 			if err != nil {
-				return feedErr(err, 4)
+				return feedErrDetail(err, 4, "insert statement error")
 			}
 		}
 	}
@@ -136,23 +138,23 @@ func (s *SelectStmt) All() ([]Set, error) {
 		case *Statement:
 			data, err = s.b.Select(vsfrom).All()
 			if err != nil {
-				return nil, feedErr(err, 1)
+				return nil, feedErrDetail(err, 1, "select statement error")
 			}
 		case []Set:
 			data = vsfrom
 		default:
-			return nil, fmt.Errorf("invalid from parameter %s", vsfrom)
+			return nil, feedErrDetail(newError(fmt.Errorf("invalid from parameter %s", vsfrom)), 2, "select statement error")
 		}
 
 		for _, os := range data {
 			ve, err = evalPredic(s.where, os)
 			if err != nil {
-				return nil, feedErr(err, 2)
+				return nil, feedErrDetail(err, 3, "select statement error")
 			}
 			if ve {
 				nr, err = os.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 3)
+					return nil, feedErrDetail(err, 4, "select statement error")
 				}
 				c = append(c, nr)
 			}
@@ -164,12 +166,12 @@ func (s *SelectStmt) All() ([]Set, error) {
 			d = &recDec{data: os}
 			ve, err = evalPredic(s.where, d)
 			if err != nil {
-				return nil, feedErr(err, 4)
+				return nil, feedErrDetail(err, 5, "select statement error") 
 			}
 			if ve {
 				nr, err = d.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 5)
+					return nil, feedErrDetail(err, 6, "select statement error")
 				}
 				c = append(c, nr)
 			}
@@ -194,23 +196,23 @@ func (s *SelectStmt) First() (Set, error) {
 		case *Statement:
 			data, err = s.b.Select(vsfrom).All()
 			if err != nil {
-				return nil, feedErr(err, 1)
+				return nil, feedErrDetail(err, 1, "select statement error")
 			}
 		case []Set:
 			data = vsfrom
 		default:
-			return nil, fmt.Errorf("invalid from parameter %s", vsfrom)
+			return nil, feedErrDetail(newError(fmt.Errorf("invalid from parameter %s", vsfrom)), 2, "select statement error")
 		}
 
 		for _, os := range data {
 			ve, err = evalPredic(s.where, os)
 			if err != nil {
-				return nil, feedErr(err, 2)
+				return nil, feedErrDetail(err, 3, "select statement error")
 			}
 			if ve {
 				nr, err = os.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 3)
+					return nil, feedErrDetail(err, 4, "select statement error")
 				}
 				return nr, nil
 			}
@@ -222,12 +224,12 @@ func (s *SelectStmt) First() (Set, error) {
 			d = &recDec{data: os}
 			ve, err = evalPredic(s.where, d)
 			if err != nil {
-				return nil, feedErr(err, 4)
+				return nil, feedErrDetail(err, 5, "select statement error")
 			}
 			if ve {
 				nr, err = d.unmarshalAll()
 				if err != nil {
-					return nil, feedErr(err, 5)
+					return nil, feedErrDetail(err, 6, "select statement error")
 				}
 				return nr, nil
 			}
@@ -248,7 +250,7 @@ func evalPredic(p *Predicate, d kvUnmarsh) (bool, error) {
 	}
 	ve, ex := e.(bool)
 	if !ex {
-		return false, fmt.Errorf("invalid Predicate result: %v", e)
+		return false, newError(fmt.Errorf("invalid predicate result: %v", e))
 	}
 	return ve, nil
 }
@@ -281,31 +283,29 @@ func (u *UpdateStmt) Set(s Set) (int, error) {
 		d = &recDec{data: os}
 		ve, err = evalPredic(u.where, d)
 		if err != nil {
-			return num, feedErr(err, 1)
+			return num, feedErrDetail(err, 1, "update statement error")
 		}
 
 		if ve {
 			ve = false
 			for key, val := range s {
-
 				for i := 0; i < len(os); i = i + 2 {
 					if Key(os[i]) == key {
 						if u.bif != nil {
 							oldv, err := decodeValue(os[i+1])
 							if err != nil {
-								return num, feedErr(err, 2)
+								return num, feedErrDetail(err, 2, "update statement error")
 							}
 							err = u.bif(u.b, map[Key]Value{key: oldv}, map[Key]Value{key: val})
 							if err != nil {
-								return num, feedErr(err, 3)
+								return num, feedErrDetail(err, 3, "update statement error")
 							}
 						}
 
 						nval, err := encodeValue(val)
 						if err != nil {
-							return num, feedErr(err, 4)
+							return num, feedErrDetail(err, 4, "update statement error")
 						}
-
 						os[i+1] = nval
 						ve = true
 						u.b.needStore = true
@@ -313,10 +313,9 @@ func (u *UpdateStmt) Set(s Set) (int, error) {
 						if u.aft != nil {
 							err = u.aft(u.b, map[Key]Value{key: val})
 							if err != nil {
-								return num, feedErr(err, 5)
+								return num, feedErrDetail(err, 5, "update statement error")
 							}
 						}
-
 					}
 				}
 			}
@@ -344,7 +343,7 @@ func (u *UpdateStmt) Add(s Set) (int, error) {
 		d = &recDec{data: os}
 		ve, err = evalPredic(u.where, d)
 		if err != nil {
-			return num, feedErr(err, 1)
+			return num, feedErrDetail(err, 1, "update statement error")
 		}
 
 		if ve {
@@ -362,27 +361,25 @@ func (u *UpdateStmt) Add(s Set) (int, error) {
 					if u.bif != nil {
 						err = u.bif(u.b, nil, map[Key]Value{key: val})
 						if err != nil {
-							return num, feedErr(err, 2)
+							return num, feedErrDetail(err, 2, "update statement error")
 						}
 					}
 
 					nval, err := encodeValue(val)
 					if err != nil {
-						return num, feedErr(err, 3)
+						return num, feedErrDetail(err, 3, "update statement error")
 					}
-
 					s := make([][]byte, 2)
 					s[0] = []byte(key)
 					s[1] = nval
 					u.b.data[osi] = append(u.b.data[osi], s[0], s[1])
-
 					ve = true
 					u.b.needStore = true
 
 					if u.aft != nil {
 						err = u.aft(u.b, map[Key]Value{key: val})
 						if err != nil {
-							return num, feedErr(err, 4)
+							return num, feedErrDetail(err, 4, "update statement error")
 						}
 					}
 				}
@@ -419,18 +416,18 @@ func (u *DeleteStmt) All() (int, error) {
 		d = &recDec{data: os}
 		ve, err = evalPredic(u.where, d)
 		if err != nil {
-			return num, feedErr(err, 1)
+			return num, feedErrDetail(err, 1, "delete statement error")
 		}
 		if ve {
 
 			if u.bif != nil {
 				s, err := d.unmarshalAll()
 				if err != nil {
-					return num, feedErr(err, 2)
+					return num, feedErrDetail(err, 2, "delete statement error")
 				}
 				err = u.bif(u.b, s)
 				if err != nil {
-					return num, feedErr(err, 3)
+					return num, feedErrDetail(err, 3, "delete statement error")
 				}
 			}
 
@@ -453,13 +450,13 @@ func (u *DeleteStmt) Key(k ...Key) (int, error) {
 		di  int
 	)
 	num = 0
-START:
+	START:
 
 	for i, os := range u.b.data {
 		d = &recDec{data: os}
 		ve, err = evalPredic(u.where, d)
 		if err != nil {
-			return num, feedErr(err, 1)
+			return num, feedErrDetail(err, 1, "delete statement error")
 		}
 		ex = false
 		if ve {
@@ -479,11 +476,11 @@ START:
 					if u.bif != nil {
 						v, err := d.unmarshal(key)
 						if err != nil {
-							return num, feedErr(err, 2)
+							return num, feedErrDetail(err, 2, "delete statement error")
 						}
 						err = u.bif(u.b, map[Key]Value{key: v})
 						if err != nil {
-							return num, feedErr(err, 3)
+							return num, feedErrDetail(err, 3, "delete statement error")
 						}
 					}
 

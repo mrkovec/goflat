@@ -58,7 +58,7 @@ func (s Set) unmarshalAll() (Set, error) {
 func NewEmptyDatabase(name string) error {
 	f, err := os.OpenFile(name ,os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_TRUNC, os.FileMode(0600))
 	if err != nil {
-		return err
+		return newError(err)
 	}
 	f.Close()	
 	return nil

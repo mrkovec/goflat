@@ -6,28 +6,51 @@ import (
 	"errors"
 	//"runtime"
 	"strconv"
-	"strings"
+	//"strings"
 )
 
 var (
-	errAlreadyConnected    = &Error{err: errors.New("connection already established")}
-	errAlreadyDisconnected = &Error{err: errors.New("connection already closed")}
+	errAlreadyConnected    = &intError{parent: errors.New("connection already established")}
+	errAlreadyDisconnected = &intError{parent: errors.New("connection already closed")}
 
-	errWrongRecordValue = &Error{}
+	errWrongRecordValue = &intError{}
 )
 
 var (
-	ErrTransTimeout = &Error{err: errors.New("timeout")}
-	errTransBlocked = &Error{err: errors.New("transaction was blocked")}
+	ErrTransTimeout = &intError{parent: errors.New("timeout")}
+	errTransBlocked = &intError{parent: errors.New("transaction was blocked")}
 )
 
-type Error struct {
-	err  error
+type intError struct {
+	parent  error
+	text string
 	attr string
 }
+func newError(e error) error {
+	if e == nil {
+		return nil
+	}
+ 	return &intError{parent:e}
+}
 
-func (f *Error) Error() string {
-	return fmt.Sprintf("FLE-%s: %s", strings.Repeat("0", 5-len(f.attr))+f.attr, f.err)
+func (f *intError) Error() string {
+	if f.text != "" {
+		return fmt.Sprintf("%s: %s", f.text, f.parent.Error())
+	}
+	return f.parent.Error()
+}
+
+func feedErrDetail(e error, i int, format string, a ...interface{}) error {
+	if e == nil {
+		return nil
+	}
+	p := strconv.Itoa(i)
+
+	f, is := e.(*intError)
+	if !is {
+		return e
+	}
+	return &intError{parent:e, attr:p + f.attr, text:fmt.Sprintf(format, a...)}
 }
 
 func feedErr(e error, i int) error {
@@ -36,10 +59,9 @@ func feedErr(e error, i int) error {
 	}
 	p := strconv.Itoa(i)
 
-	f, is := e.(*Error)
+	f, is := e.(*intError)
 	if !is {
-		return &Error{err: e, attr: p}
+		return e
 	}
-	f.attr = p + f.attr
-	return f
+ 	return &intError{parent:e, attr:p + f.attr}
 }

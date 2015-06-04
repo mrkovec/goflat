@@ -187,7 +187,7 @@ func (b *basicFlatFile) load() error {
 
 	f, err := os.OpenFile(b.dbFilename, os.O_RDONLY|os.O_SYNC, os.FileMode(0600))
 	if err != nil {
-		return feedErr(err, 2)
+		return feedErr(newError(err), 2)
 	}
 	defer f.Close()
 
@@ -202,7 +202,7 @@ func (b *basicFlatFile) load() error {
 	dec := gob.NewDecoder(f)
 	err = dec.Decode(&b.data)
 	if err != nil && err != io.EOF {
-		return feedErr(err, 3)
+		return feedErr(newError(err), 3)
 	}
 	return nil
 }
@@ -214,14 +214,14 @@ func (b *basicFlatFile) store() error {
 
 	f, err := os.OpenFile(b.dbFilename, os.O_WRONLY|os.O_SYNC, os.FileMode(0600))
 	if err != nil {
-		return feedErr(err, 1)
+		return feedErr(newError(err), 1)
 	}
 	defer f.Close()
 
 	enc := gob.NewEncoder(f)
 	err = enc.Encode(b.data)
 	if err != nil {
-		return feedErr(err, 2)
+		return feedErr(newError(err), 2)
 	}
 	b.lastVer = b.dbVer.raise()
 	return nil
@@ -253,7 +253,7 @@ func (b *basicFlatFile) commit() error {
 				return b.rollback(nil)
 			}
 		default:
-			return fmt.Errorf("unknown locking mode")
+			return newError(fmt.Errorf("unknown locking mode"))
 		}
 	}
 
@@ -315,7 +315,7 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 	}
 
 	if err = f(b); err != nil {
-		e, is := err.(*Error)
+		e, is := err.(*intError)
 		if is {
 			//internal statement error
 			return feedErr(b.rollback(e), 3)
@@ -369,7 +369,7 @@ func (b *basicFlatFile) unlock() (err error) {
 	case <-b.dbLock:
 		return nil
 	default:
-		return fmt.Errorf("unlocking and not having lock")
+		return newError(fmt.Errorf("unlocking and not having lock"))
 	}
 
 	return nil
@@ -396,7 +396,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 		buf := new(bytes.Buffer)
 		err := binary.Write(buf, binary.LittleEndian, r)
 		if err != nil {
-			return nil, err
+			return nil, newError(err)
 		}
 		n := make([]byte, len(buf.Bytes())+1)
 		n[0] = int_PFX
@@ -406,7 +406,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 		buf := new(bytes.Buffer)
 		err := binary.Write(buf, binary.LittleEndian, r)
 		if err != nil {
-			return nil, err
+			return nil, newError(err)
 		}
 		n := make([]byte, len(buf.Bytes())+1)
 		n[0] = float_PFX
@@ -421,7 +421,7 @@ func encodeValue(val interface{}) ([]byte, error) {
 	case time.Time:
 		b, err := r.MarshalBinary()
 		if err != nil {
-			return nil, err
+			return nil, newError(err)
 		}
 		n := make([]byte, len(b)+1)
 		n[0] = time_PFX
@@ -433,8 +433,8 @@ func encodeValue(val interface{}) ([]byte, error) {
 		copy(n[1:], r)
 		return n, nil
 	default:
-		errWrongRecordValue.err = fmt.Errorf("%v has a unsuported value type (%T)", r, r)
-		return nil, errWrongRecordValue
+		//errWrongRecordValue.err = fmt.Errorf("%v has a unsuported value type (%T)", r, r)
+		return nil, fmt.Errorf("%v has a unsuported value type (%T)", r, r)
 	}
 }
 
@@ -446,7 +446,7 @@ func encodeSet(r Set) ([][]byte, error) {
 		i++
 		n, err := encodeValue(val)
 		if err != nil {
-			return nil, err
+			return nil, feedErr(err,1)
 		}
 		s[i] = n
 		i++
@@ -477,7 +477,7 @@ func decodeValue(c []byte) (interface{}, error) {
 		buf := bytes.NewReader(c[1:])
 		err := binary.Read(buf, binary.LittleEndian, &in)
 		if err != nil {
-			return nil, fmt.Errorf("cannot convert value to int64: %v", err)
+			return nil, newError(fmt.Errorf("cannot convert value to int64: %v", err))
 		}
 		return in, nil
 	case float_PFX:
@@ -485,7 +485,7 @@ func decodeValue(c []byte) (interface{}, error) {
 		buf := bytes.NewReader(c[1:])
 		err := binary.Read(buf, binary.LittleEndian, &fl)
 		if err != nil {
-			return nil, fmt.Errorf("cannot convert value to float64: %v", err)
+			return nil, newError(fmt.Errorf("cannot convert value to float64: %v", err))
 		}
 		return fl, nil
 	case string_PFX:
@@ -493,13 +493,13 @@ func decodeValue(c []byte) (interface{}, error) {
 	case time_PFX:
 		var t time.Time
 		if err := t.UnmarshalBinary(c[1:]); err != nil {
-			return nil, fmt.Errorf("cannot convert value to time: %v", err)
+			return nil, newError(fmt.Errorf("cannot convert value to time: %v", err))
 		}
 		return t, nil
 	case byte_PFX:
 		return c[1:], nil
 	default:
-		return nil, fmt.Errorf("unknown value type")
+		return nil, newError(fmt.Errorf("unknown value type"))
 	}
 }
 func decodeSet(s [][]byte) (Set, error) {
@@ -509,7 +509,7 @@ func decodeSet(s [][]byte) (Set, error) {
 		key := string(s[i])
 		val, err := decodeValue(s[i+1])
 		if err != nil {
-			return nil, err
+			return nil, feedErr(err, 1)
 		}
 		n[Key(key)] = val
 	}
