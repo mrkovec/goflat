@@ -14,14 +14,23 @@ func (b *basicFlatFile) Insert() *InsertStmt {
 	return &InsertStmt{Statement: &Statement{b: b, from: nil, where: nil}, bif: nil, aft: nil}
 }
 func (b *basicFlatFile) Select(s *Statement) *SelectStmt {
+	if s == nil {
+		s = NewStatement()
+	}
 	s.b = b
 	return &SelectStmt{Statement: s}
 }
 func (b *basicFlatFile) Update(s *Statement) *UpdateStmt {
+	if s == nil {
+		s = NewStatement()
+	}
 	s.b = b
 	return &UpdateStmt{Statement: s, bif: nil, aft: nil}
 }
 func (b *basicFlatFile) Delete(s *Statement) *DeleteStmt {
+	if s == nil {
+		s = NewStatement()
+	}
 	s.b = b
 	return &DeleteStmt{Statement: s, bif: nil}
 }

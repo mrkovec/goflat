@@ -320,7 +320,7 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 			return feedErr(b.rollback(e), 4)
 		}
 		//user error == rollback
-		return feedErr(b.rollback(err), 5)
+		return b.rollback(err)
 	}
 	//commit
 	return feedErr(b.commit(), 3)

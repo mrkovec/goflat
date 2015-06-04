@@ -4,6 +4,7 @@ import (
 	//"fmt"
 	//"strings"
 	"time"
+	"bytes"
 )
 
 // Term represents a single term in a predicate
@@ -11,21 +12,25 @@ type Term struct {
 	val interface{}
 }
 
-func BoolTerm(i bool) *Term {
+func boolTerm(i bool) *Term {
 	return &Term{val: i}
 }
-func IntTerm(i int64) *Term {
+func intTerm(i int64) *Term {
 	return &Term{val: i}
 }
-func FloatTerm(i float64) *Term {
+func floatTerm(i float64) *Term {
 	return &Term{val: i}
 }
-func StringTerm(i string) *Term {
+func stringTerm(i string) *Term {
 	return &Term{val: i}
 }
-func TimeTerm(i time.Time) *Term {
+func timeTerm(i time.Time) *Term {
 	return &Term{val: i}
 }
+func byteTerm(i []byte) *Term {
+	return &Term{val: i}
+}
+// KeyTerm returns a new key term
 func KeyTerm(k interface{}) *Term {
 	switch vk := k.(type) {
 	case string:
@@ -33,8 +38,42 @@ func KeyTerm(k interface{}) *Term {
 	case Key:
 		return &Term{val: vk}
 	}
+	return &Term{}
+}
+// ValueTerm returns a new value term
+func ValueTerm(v interface{}) *Term {
+	switch vv := v.(type) {
+	case Key:
+		return &Term{val: vv}
+	case bool:
+		return boolTerm(vv)
+	case int:
+		return intTerm(int64(vv))
+	case int8:
+		return intTerm(int64(vv))
+	case int16:
+		return intTerm(int64(vv))
+	case int32:
+		return intTerm(int64(vv))
+	case int64:
+		return intTerm(vv)
+	case float32:
+		return floatTerm(float64(vv))
+	case float64:
+		return floatTerm(vv)
+	case string:
+		return stringTerm(vv)
+	case time.Time:
+		return timeTerm(vv)
+	case []uint8:
+		return byteTerm(vv)
+	default:
+		return &Term{}
+	}
 	return nil
 }
+
+
 // Equals is a rational perator: a == b
 func (a *Term) Equals(b *Term) *Predicate {
 	return &Predicate{a: a, b: b, f: f_eq}
@@ -164,6 +203,8 @@ func f_eq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va == vb
 			case float64:
 				return float64(va) == vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -171,6 +212,8 @@ func f_eq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va == float64(vb)
 			case float64:
 				return va == vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -186,6 +229,13 @@ func f_eq(a *Term, b *Term, d kvUnmarsh) interface{} {
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return bytes.Equal(va, vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}
@@ -230,6 +280,8 @@ func f_neq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va != vb
 			case float64:
 				return float64(va) != vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -237,6 +289,8 @@ func f_neq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va != float64(vb)
 			case float64:
 				return va != vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -252,6 +306,13 @@ func f_neq(a *Term, b *Term, d kvUnmarsh) interface{} {
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return !bytes.Equal(va, vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}
@@ -289,6 +350,8 @@ func f_gr(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va > vb
 			case float64:
 				return float64(va) > vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -296,6 +359,8 @@ func f_gr(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va > float64(vb)
 			case float64:
 				return va > vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -312,6 +377,13 @@ func f_gr(a *Term, b *Term, d kvUnmarsh) interface{} {
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return string(va) > string(vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}
@@ -348,6 +420,8 @@ func f_greq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va >= vb
 			case float64:
 				return float64(va) >= vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -355,6 +429,8 @@ func f_greq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va >= float64(vb)
 			case float64:
 				return va >= vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -371,6 +447,13 @@ func f_greq(a *Term, b *Term, d kvUnmarsh) interface{} {
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return bytes.Equal(va, vb) || string(va) > string(vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}
@@ -408,6 +491,8 @@ func f_ls(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va < vb
 			case float64:
 				return float64(va) < vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -415,6 +500,8 @@ func f_ls(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va < float64(vb)
 			case float64:
 				return va < vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -431,6 +518,13 @@ func f_ls(a *Term, b *Term, d kvUnmarsh) interface{} {
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return string(va) < string(vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}
@@ -468,6 +562,8 @@ func f_lseq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va <= vb
 			case float64:
 				return float64(va) <= vb
+			default:
+				return nil
 			}
 		case float64:
 			switch vb := b.val.(type) {
@@ -475,6 +571,8 @@ func f_lseq(a *Term, b *Term, d kvUnmarsh) interface{} {
 				return va <= float64(vb)
 			case float64:
 				return va <= vb
+			default:
+				return nil
 			}
 		case string:
 			switch vb := b.val.(type) {
@@ -487,10 +585,17 @@ func f_lseq(a *Term, b *Term, d kvUnmarsh) interface{} {
 		case time.Time:
 			switch vb := b.val.(type) {
 			case time.Time:
-				return va.After(vb) || va.Equal(vb)
+				return va.Before(vb) || va.Equal(vb)
 			default:
 				return nil
 			}
+		case []uint8:
+			switch vb := b.val.(type) {
+			case []uint8:
+				return bytes.Equal(va, vb) || string(va) < string(vb)
+			default:
+				return nil
+			}			
 		default:
 			return nil
 		}

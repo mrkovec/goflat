@@ -18,7 +18,7 @@ func ExampleSelectStmt() {
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		data, err := tr.Select(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5))))).All()
+		data, err := tr.Select(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.ValueTerm(int64(5))))).All()
 		_ = data
 		return err
 	}); err != nil {
@@ -55,7 +55,7 @@ func ExampleUpdateStmt() {
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		rowsUpdated, err := tr.Update(goflat.NewStatement().Where(goflat.KeyTerm("timestamp").Less(goflat.TimeTerm(time.Now())))).Set(goflat.Set{"timestamp": time.Now()})
+		rowsUpdated, err := tr.Update(goflat.NewStatement().Where(goflat.KeyTerm("timestamp").Less(goflat.ValueTerm(time.Now())))).Set(goflat.Set{"timestamp": time.Now()})
 		_ = rowsUpdated
 		return err
 	}); err != nil {
@@ -74,7 +74,7 @@ func ExampleDeleteStmt() {
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		rowsDeleted, err := tr.Delete(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.IntTerm(int64(5))))).All()
+		rowsDeleted, err := tr.Delete(goflat.NewStatement().Where(goflat.KeyTerm("id").Equals(goflat.ValueTerm(int64(5))))).All()
 		_ = rowsDeleted
 		return err
 	}); err != nil {
@@ -96,7 +96,7 @@ func ExampleTerm_StringEval(){
 	if err = session.Transaction(func(tr goflat.Trx) error {
 		
 		a := goflat.KeyTerm("firstname")
-		b := goflat.StringTerm("john")
+		b := goflat.ValueTerm("john")
 		data, err := tr.Select(goflat.NewStatement().Where(a.StringEval(b, strings.EqualFold))).All()
 		_ = data
 		return err
@@ -106,7 +106,7 @@ func ExampleTerm_StringEval(){
 	}
 	log.Print(session)
 }
-func ExampleTerm_StringEval_second(){
+func ExampleTerm_StringEval_UserDefinedFunc(){
 	db := goflat.NewConnector()
 	session, err := db.Connect("test.dtb", "user")
 	if err != nil {
@@ -117,7 +117,7 @@ func ExampleTerm_StringEval_second(){
 	if err = session.Transaction(func(tr goflat.Trx) error {
 		
 		a := goflat.KeyTerm("surname")
-		b := goflat.StringTerm("foo.*")
+		b := goflat.ValueTerm("foo.*")
 		fn := func(a string, b string) bool {
 			matched, err := regexp.MatchString(b, a)
 			if err != nil {
