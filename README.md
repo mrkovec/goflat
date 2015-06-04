@@ -50,7 +50,7 @@ Functionality outline:
 ```
 The basic data unit is a `Set` in the form of `map[string]interface{}`. Every DML statement is executed in an ACID transaction in form of a `func(goflat.Trx) error` function:
 ```go
-session.Transaction(func(tr Trx) error {
+session.Transaction(func(tr goflat.Trx) error {
 		...
 	});
 ```
@@ -64,6 +64,6 @@ Every DML statement uses only those conditions that are needed.
 //select uses both Where and From conditions
 data, err := tr.Select(myStatement2).All()
 //update uses only Where condition
-nUpdated, err := tr.Update(myStatement2).Set(Set{"name": "Bill"})
+nUpdated, err := tr.Update(myStatement2).Set(goflat.Set{"name": "Bill"})
 ```
 More examples are on GoDoc or in test/benchmark files.
