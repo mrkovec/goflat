@@ -48,6 +48,7 @@ Functionality outline:
         log.Print(err)
         return
     }
+    log.Print(session)    
 ```
 The basic data unit is a `Set` in the form of `map[string]interface{}`. Every DML statement is executed in an ACID transaction in form of a `func(goflat.Trx) error` function:
 ```go
