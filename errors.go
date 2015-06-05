@@ -35,7 +35,7 @@ func newError(e error) error {
 
 func (f *intError) Error() string {
 	if f.text != "" {
-		return fmt.Sprintf("%s: %s", f.text, f.parent.Error())
+		return fmt.Sprintf("%s - %s", f.text, f.parent.Error())
 	}
 	return f.parent.Error()
 }

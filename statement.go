@@ -70,14 +70,28 @@ type InsertStmt struct {
 // BeforeTrigger assigns a trigger which will be executed before the insert statemnet
 // in before triger you can modify the inserted Set or prevent the specific Set to be inserted or cancel whole insert statement
 func (i *InsertStmt) BeforeTrigger(f func(Trx, Set) error) *InsertStmt {
-	i.bif = f
+	i.bif = func(t Trx, s Set) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+			     err = newError(fmt.Errorf("before insert trigger panicked with %v", r))
+			}
+		}()
+		return f(t, s)
+	}
 	return i
 }
 
 // AfterTrigger assigns a trigger which will be executed after the insert statemnet
 // in after triger you can not modify the inserted Set
 func (i *InsertStmt) AfterTrigger(f func(Trx, Set) error) *InsertStmt {
-	i.aft = f
+	i.aft = func(t Trx, s Set) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+			     err = newError(fmt.Errorf("after insert trigger panicked with %v", r))
+			}
+		}()
+		return f(t, s)
+	}
 	return i
 }
 
@@ -262,11 +276,25 @@ type UpdateStmt struct {
 }
 
 func (u *UpdateStmt) BeforeTrigger(f func(Trx, Set, Set) error) *UpdateStmt {
-	u.bif = f
+	u.bif = func(t Trx, a Set, b Set) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+			     err = newError(fmt.Errorf("before update trigger panicked with %v", r))
+			}
+		}()
+		return f(t, a, b)
+	}
 	return u
 }
 func (u *UpdateStmt) AfterTrigger(f func(Trx, Set) error) *UpdateStmt {
-	u.aft = f
+	u.aft = func(t Trx, s Set) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+			     err = newError(fmt.Errorf("after update trigger panicked with %v", r))
+			}
+		}()
+		return f(t, s)
+	}
 	return u
 }
 
@@ -400,7 +428,14 @@ type DeleteStmt struct {
 }
 
 func (u *DeleteStmt) BeforeTrigger(f func(Trx, Set) error) *DeleteStmt {
-	u.bif = f
+	u.bif = func(t Trx, s Set) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+			     err = newError(fmt.Errorf("before delete trigger panicked with %v", r))
+			}
+		}()
+		return f(t, s)
+	}
 	return u
 }
 func (u *DeleteStmt) All() (int, error) {
