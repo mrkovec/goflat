@@ -12,7 +12,7 @@ Functionality outline:
     //setup
     goflat.NewEmptyDatabase("test.dtb") 
     db := goflat.NewConnector()
-    session, err := db.Connect("test.dtb", "user")
+    session, _ := db.Connect("test.dtb", "user")
     defer db.Disconnect()
     
     myData := []goflat.Set{goflat.Set{"table": "emp", "name": "John", "id":nil}, goflat.Set{"table": "emp", "name": "Jane", "id":nil}}
@@ -41,6 +41,9 @@ Functionality outline:
     //update + review
     if err = session.Transaction(func(tr goflat.Trx) error {
         _, err := tr.Update(myStatement2).Set(goflat.Set{"name": "Bill"})
+        if err != nil {
+            return err
+        }
         data, err := tr.Select(myStatement1).All()
         log.Print(data)
         return err
