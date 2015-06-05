@@ -12,7 +12,7 @@ Functionality outline:
     //setup
     goflat.NewEmptyDatabase("test.dtb") 
     db := goflat.NewConnector()
-    session, _ := db.Connect("test.dtb", "user")
+    session, err := db.Connect("test.dtb", "user")
     defer db.Disconnect()
     
     myData := []goflat.Set{goflat.Set{"table": "emp", "name": "John", "id":nil}, goflat.Set{"table": "emp", "name": "Jane", "id":nil}}
