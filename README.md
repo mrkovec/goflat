@@ -59,6 +59,8 @@ session.Transaction(func(tr goflat.Trx) error {
 		...
 	});
 ```
+When output of this function is `nil` changes made in this transaction are committed, else changes are rollbacked.
+
 DML statements consist of a "main" statement parameters descriptor `Statement` with `Where` (and `From`) conditions. 
 ```go
 myStatement1 := goflat.NewStatement().Where(goflat.KeyTerm("table").Equals(goflat.ValueTerm("emp")))
