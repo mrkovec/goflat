@@ -21,7 +21,7 @@ Functionality outline:
     myStatement2 := goflat.NewStatement().Where(goflat.KeyTerm("table").Equals(goflat.ValueTerm("emp")).And(goflat.KeyTerm("name").Equals(goflat.ValueTerm("John"))))    
 
     var seq int64
-    myTrigger := func(t goflat.Trx, s goflat.Set) error {
+    myBeforeInsertTrigger := func(t goflat.Trx, s goflat.Set) error {
         if s["id"] == nil {
             s["id"] = seq
             seq ++
@@ -31,7 +31,7 @@ Functionality outline:
 
     //insert
     if err = session.Transaction(func(tr goflat.Trx) error {
-        err = tr.Insert().BeforeTrigger(myTrigger).Values(myData...)
+        err = tr.Insert().BeforeTrigger(myBeforeInsertTrigger).Values(myData...)
         return err
     }); err != nil {
         log.Print(err)
