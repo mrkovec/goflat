@@ -50,6 +50,9 @@ func feedErrDetail(e error, i int, format string, a ...interface{}) error {
 	if !is {
 		return e
 	}
+	if f == errTransBlocked {
+		return f
+	}	
 	return &intError{parent:e, attr:p + f.attr, text:fmt.Sprintf(format, a...)}
 }
 
@@ -62,6 +65,9 @@ func feedErr(e error, i int) error {
 	f, is := e.(*intError)
 	if !is {
 		return e
+	}
+	if f == errTransBlocked {
+		return f
 	}
  	return &intError{parent:e, attr:p + f.attr}
 }

@@ -153,3 +153,14 @@ func (b statNumber) String() string {
 	}
 	return fmt.Sprintf("%d", int(b))
 }
+
+func (c ConControl) String() string {
+	switch c {
+	case PESSIMISTIC:
+		return fmt.Sprint("pessimistic")
+	case NOWAIT:
+		return fmt.Sprint("nowait")
+	default:
+		return fmt.Sprint("optimistic")
+	}
+}

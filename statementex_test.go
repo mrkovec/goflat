@@ -37,7 +37,7 @@ func ExampleInsertStmt() {
 	defer db.Disconnect()
 
 	if err = session.Transaction(func(tr goflat.Trx) error {
-		err = tr.Insert().Values(goflat.Set{"string": "xxx", "number": int64(1), "float": float64(3.14), "boolean": true, "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}})
+		err = tr.Insert().Values(goflat.Set{"boolean": true, "number": int64(1), "float": float64(3.14), "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}, "string": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."})
 		return err
 	}); err != nil {
 		log.Print(err)

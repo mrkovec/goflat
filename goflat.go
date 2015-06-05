@@ -13,6 +13,8 @@ type Connector interface {
 type Session interface {
 	// Runs provided function inside ACID transaction
 	Transaction(func(Trx) error) error
+	SetConfig(Config) error
+	Stats() Stats
 }
 
 // Trx is a single ACID transaction descriptor

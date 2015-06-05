@@ -13,12 +13,14 @@ import (
 	"bytes"
 	"hash/fnv"
 	"sync"
+
 )
 
 var (
 	uberLock    map[string]chan struct{}
 	uberVersion map[string]*flatFileVer
 	sessionPool sync.Pool
+	uberMutex sync.RWMutex
 )
 
 var (
@@ -69,8 +71,8 @@ type Stats struct {
 	// number of transaction restarts
 	Restarts int
 	// io statistics
-	Readed byteSize
-	Writed byteSize
+	//Readed byteSize
+	//Writed byteSize
 }
 
 type basicFlatFile struct {
@@ -109,6 +111,14 @@ type connector struct {
 }
 
 func NewConnector() Connector {
+	uberMutex.Lock()
+	defer uberMutex.Unlock()
+	if uberLock == nil {
+		uberLock = make(map[string]chan struct{})
+	}
+	if uberVersion == nil {
+		uberVersion = make(map[string]*flatFileVer)
+	}
 	return &connector{}
 }
 func (c *connector) Connect(db, user string) (Session, error) {
@@ -118,34 +128,43 @@ func (c *connector) Connect(db, user string) (Session, error) {
 		return nil, errAlreadyConnected
 	}
 
-	if uberLock == nil {
-		uberLock = make(map[string]chan struct{})
-	}
-	fl, e := uberLock[db]
-	if !e {
-		fl = make(chan struct{}, 1)
-		uberLock[db] = fl
-	}
-
-	if uberVersion == nil {
-		uberVersion = make(map[string]*flatFileVer)
-	}
-	fv, e := uberVersion[db]
-	if !e {
-		fv = &flatFileVer{version: 0}
-		uberVersion[db] = fv
-	}
-
-	t, _ := time.Now().MarshalBinary()
-	var ids [][]byte = [][]byte{[]byte(db), []byte(user), t}
-
 	sp := sessionPool.Get()
-
 	if sp == nil {
 		c.ses = &basicFlatFile{config: &Config{}, data: make([][][]byte, 0, 1024)}
 	} else {
 		c.ses = sp.(*basicFlatFile)
 	}
+
+	/*if uberLock == nil {
+		uberLock = make(map[string]chan struct{})
+	}*/
+	uberMutex.RLock()
+	fl, el := uberLock[db]
+	fv, ev := uberVersion[db]
+	uberMutex.RUnlock()
+	if !el {
+		fl = make(chan struct{}, 1)
+		uberMutex.Lock()
+		uberLock[db] = fl
+		uberMutex.Unlock()
+	}
+
+	// if uberVersion == nil {
+	// 	uberVersion = make(map[string]*flatFileVer)
+	// }
+
+	c.ses.lastVer = -666
+	if !ev {
+		fv = &flatFileVer{version: 0}
+		c.ses.lastVer = 0
+		uberMutex.Lock()
+		uberVersion[db] = fv
+		uberMutex.Unlock()
+	}
+
+	t, _ := time.Now().MarshalBinary()
+	var ids [][]byte = [][]byte{[]byte(db), []byte(user), t}
+
 	//c.ses.dbFilename = db + ".dtb"
 	c.ses.dbFilename = db
 	//c.ses.hdrFilename = db + ".hdr"
@@ -169,6 +188,16 @@ func (c *connector) Disconnect() error {
 	}
 	c.ses.data = c.ses.data[0:0]
 	c.ses.dbConn = nil
+	c.ses.stats.LastStatement = -1
+	c.ses.stats.StatementError = nil
+	c.ses.stats.Inserted = 0
+	c.ses.stats.Updated = 0
+	c.ses.stats.Deleted = 0
+	c.ses.stats.Duration = 0
+	c.ses.stats.Waited = 0
+	c.ses.stats.Restarts = 0
+	c.ses.haveLock = false
+	c.ses.needStore = false
 	sessionPool.Put(c.ses)
 	c.ses = nil
 	return nil
@@ -196,7 +225,7 @@ func (b *basicFlatFile) load() error {
 	if !needReload {
 		//return nil
 	}
-
+	
 	b.data = b.data[0:0]
 
 	dec := gob.NewDecoder(f)
@@ -204,6 +233,7 @@ func (b *basicFlatFile) load() error {
 	if err != nil && err != io.EOF {
 		return feedErr(newError(err), 3)
 	}
+	b.lastVer = b.dbVer.get()
 	return nil
 }
 func (b *basicFlatFile) store() error {
@@ -238,12 +268,15 @@ func (b *basicFlatFile) commit() error {
 			if b.lastVer != b.dbVer.get() {
 				b.stats.Restarts++
 				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked, 3)
+				return errTransBlocked
 			}
 			if err = b.nowaitlock(); err != nil {
 				b.stats.Restarts++
-				b.config.Locking = PESSIMISTIC
-				return feedErr(errTransBlocked, 4)
+				//b.config.Locking = PESSIMISTIC
+				if b.stats.Restarts > 5 {
+					b.config.Locking = PESSIMISTIC
+				}
+				return errTransBlocked
 			}
 		case NOWAIT:
 			if b.lastVer != b.dbVer.get() {
@@ -309,9 +342,9 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 
 	if err = b.load(); err != nil {
 		//uugly but...
-		if err = b.load(); err != nil {
+		//if err = b.load(); err != nil {
 			return feedErr(err, 2)
-		}
+		//}
 	}
 
 	if err = f(b); err != nil {
@@ -331,13 +364,12 @@ func (b *basicFlatFile) nowaitlock() error {
 	if b.haveLock {
 		return nil
 	}
-
 	select {
 	case b.dbLock <- struct{}{}:
 		b.haveLock = true
 		return nil
 	default:
-		return feedErr(ErrTransTimeout, 1)
+		return ErrTransTimeout
 	}
 	return nil
 }
@@ -346,7 +378,6 @@ func (b *basicFlatFile) lock() error {
 	if b.haveLock {
 		return nil
 	}
-
 	start := time.Now()
 	select {
 	case b.dbLock <- struct{}{}:
@@ -355,7 +386,7 @@ func (b *basicFlatFile) lock() error {
 		return nil
 	case <-time.After(b.config.Timeout):
 		b.stats.Waited = b.stats.Waited + time.Since(start)
-		return feedErr(ErrTransTimeout, 2)
+		return ErrTransTimeout
 	}
 	return nil
 }
@@ -514,6 +545,16 @@ func decodeSet(s [][]byte) (Set, error) {
 		n[Key(key)] = val
 	}
 	return n, nil
+}
+
+
+func (b *basicFlatFile) SetConfig(c Config) error {
+	b.config = &c
+	return nil
+}
+
+func (b *basicFlatFile) Stats() Stats {
+	return b.stats
 }
 
 /*func (b *basicFlatFile) decodeData(r ...RecordSet) error {

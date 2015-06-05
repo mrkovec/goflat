@@ -74,7 +74,7 @@ func BenchmarkSingleInsert(b *testing.B) {
 	b.ResetTimer()
     for i := 0;  i < b.N; i++ {
 		if err = session.Transaction(func(tr Trx) error {
-			err = tr.Insert().Values(Set{"string": "xxx", "number": int64(1), "float": float64(3.14), "boolean": true, "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}})
+			err = tr.Insert().Values(Set{"boolean": true, "number": int64(1), "float": float64(3.14), "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}, "string": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."})
 			return err
 		}); err != nil {
 	    	b.Errorf(err.Error())
@@ -100,7 +100,7 @@ func BenchmarkBulkInsert(b *testing.B) {
 
 	data := make([]Set,b.N)
     for i := 0;  i < b.N; i++ {
-    	data[i] = Set{"string": "xxx", "number": int64(1), "float": float64(3.14), "boolean": true, "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}}
+    	data[i] = Set{"boolean": true, "number": int64(1), "float": float64(3.14), "time": time.Now(), "byte": []byte{0, 0, 0, 0, 0}, "string": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
     }
 
 	if err = session.Transaction(func(tr Trx) error {
