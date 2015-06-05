@@ -98,7 +98,7 @@ func TestRollback(t *testing.T){
 	}
 }
 
-var numTrx = 300
+var numTrx = 10 //300
 
 func TestConcurrencyOptimisticShort_RdO(t *testing.T) {
 	testConcurrency(t, OPTIMISTIC, numTrx, 0, 0)
@@ -325,7 +325,7 @@ func testConcurrency(t *testing.T, cc ConControl, numTests int, writperc int, du
     	td = "short"
     }
 
-   	fmt.Printf("fired %v %s %s trx/s in %v (%5.2f trx/s) w:%v%% r:%v%%, avg duration %v (%v/%v), wait %v (%v/%v), retries %v", numTests, td, cc, ed, float64(numTests)/ed.Seconds(), 100-writperc, writperc,  time.Duration(float64(d)/float64(numTests)), mid, mad, time.Duration(float64(w)/float64(numTests)), miw, maw, ret)
+   	fmt.Printf("fired %v %s %s trx/s in %v (%5.2f trx/s) r:%v%% w:%v%%, avg duration %v (%v/%v), wait %v (%v/%v), retries %v", numTests, td, cc, ed, float64(numTests)/ed.Seconds(), 100-writperc, writperc,  time.Duration(float64(d)/float64(numTests)), mid, mad, time.Duration(float64(w)/float64(numTests)), miw, maw, ret)
 
   	db := NewConnector()
 	session, _ := db.Connect("test.dtb", "user")
