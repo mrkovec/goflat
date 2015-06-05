@@ -254,6 +254,9 @@ var (
 
 func testConcurrency(t *testing.T, cc ConControl, numTests int, writperc int, duration int) {
 	t.Parallel()
+	if testing.Short() {
+		numTests = 1
+	}
 
 	waits = make(chan time.Duration, numTests)
 	durations = make(chan time.Duration, numTests)
