@@ -98,7 +98,7 @@ func TestRollback(t *testing.T){
 	}
 }
 
-var numTrx = 10 //300
+var numTrx = 300
 
 func TestConcurrencyOptimisticShort_RdO(t *testing.T) {
 	testConcurrency(t, OPTIMISTIC, numTrx, 0, 0)
@@ -317,7 +317,6 @@ func testConcurrency(t *testing.T, cc ConControl, numTests int, writperc int, du
 	close(waits)
 	close(durations)
 
-
     var td string
     switch duration {
     case 10:
@@ -328,7 +327,7 @@ func testConcurrency(t *testing.T, cc ConControl, numTests int, writperc int, du
     	td = "short"
     }
 
-   	fmt.Printf("fired %v %s %s trx/s in %v (%5.2f trx/s) r:%v%% w:%v%%, avg duration %v (%v/%v), wait %v (%v/%v), retries %v", numTests, td, cc, ed, float64(numTests)/ed.Seconds(), 100-writperc, writperc,  time.Duration(float64(d)/float64(numTests)), mid, mad, time.Duration(float64(w)/float64(numTests)), miw, maw, ret)
+   	fmt.Printf("fired %v %s %s trx/s in %v (%5.2f trx/s) r:%v%% w:%v%%, avg duration %v (%v/%v), wait %v (%v/%v), retries %v\n", numTests, td, cc, ed, float64(numTests)/ed.Seconds(), 100-writperc, writperc,  time.Duration(float64(d)/float64(numTests)), mid, mad, time.Duration(float64(w)/float64(numTests)), miw, maw, ret)
 
   	db := NewConnector()
 	session, _ := db.Connect("test.dtb", "user")
@@ -338,24 +337,12 @@ func testConcurrency(t *testing.T, cc ConControl, numTests int, writperc int, du
 		if err != nil {
     		return err
 		}
-
-		//
-		//e := numTests
-		g := len(data)
-		fmt.Printf(" - %v trx commited", g)
-		//if e != g {
-			//if cc == NOWAIT {
-				//fmt.Printf(" - from %v trx %v commited", e, g)
-			//} else {
-			//	t.Errorf("expected %v and got %v", e, g )
-			//}
-		//}
+		fmt.Printf(" - %v trx commited", len(data))
 		return nil
 	}); err != nil {
     	t.Errorf(err.Error())
 		return
 	}
-	fmt.Printf("\n")
 }
 
  

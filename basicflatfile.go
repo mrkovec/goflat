@@ -31,9 +31,9 @@ var (
 )
 
 //http://en.wikipedia.org/wiki/Concurrency_control#Database_transaction_and_the_ACID_rules
+
 // concurrency control method
 type ConControl int
-
 const (
 	OPTIMISTIC ConControl = iota
 	PESSIMISTIC
@@ -47,7 +47,6 @@ type Config struct {
 }
 
 type statementType int
-
 const (
 	sELECT statementType = iota
 	iNSERT
@@ -303,6 +302,19 @@ func (b *basicFlatFile) rollback(e error) error {
 	return e
 }
 
+// Config returns configuration of session 
+func (b *basicFlatFile) Config() Config {
+	return Config{Timeout:b.config.Timeout, Locking:b.config.Locking}
+}
+// SetConfig sets configuration for session 
+func (b *basicFlatFile) SetConfig(c Config) error {
+	b.config = &c
+	return nil
+}
+// Stats returns session statistics
+func (b *basicFlatFile) Stats() Stats {
+	return b.stats
+}
 // runs a ACID transaction
 func (b *basicFlatFile) Transaction(f func(Trx) error) error {
 	var err error
@@ -547,15 +559,6 @@ func decodeSet(s [][]byte) (Set, error) {
 	return n, nil
 }
 
-
-func (b *basicFlatFile) SetConfig(c Config) error {
-	b.config = &c
-	return nil
-}
-
-func (b *basicFlatFile) Stats() Stats {
-	return b.stats
-}
 
 /*func (b *basicFlatFile) decodeData(r ...RecordSet) error {
 
