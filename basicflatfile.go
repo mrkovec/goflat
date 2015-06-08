@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"hash/fnv"
 	"sync"
-
 )
 
 var (
@@ -207,11 +206,16 @@ func (c *connector) Disconnect() error {
 func (b *basicFlatFile) load() error {
 	var err error
 
-	if b.config.Locking == PESSIMISTIC {
-		if err := b.lock(); err != nil {
-			return feedErr(err, 1)
-		}
+	if err := b.lock(); err != nil {
+		return feedErr(err, 1)
 	}
+
+
+	// if b.config.Locking == PESSIMISTIC {
+	// 	if err := b.lock(); err != nil {
+	// 		return feedErr(err, 1)
+	// 	}
+	// }
 
 	f, err := os.OpenFile(b.dbFilename, os.O_RDONLY|os.O_SYNC, os.FileMode(0600))
 	if err != nil {
@@ -233,14 +237,18 @@ func (b *basicFlatFile) load() error {
 		return feedErr(newError(err), 3)
 	}
 	b.lastVer = b.dbVer.get()
+
+	if b.config.Locking != PESSIMISTIC {
+		b.unlock();
+	}
+
 	return nil
 }
 func (b *basicFlatFile) store() error {
-
+	
 	if !b.needStore {
 		return nil
 	}
-
 	f, err := os.OpenFile(b.dbFilename, os.O_WRONLY|os.O_SYNC, os.FileMode(0600))
 	if err != nil {
 		return feedErr(newError(err), 1)
@@ -272,8 +280,8 @@ func (b *basicFlatFile) commit() error {
 			if err = b.nowaitlock(); err != nil {
 				b.stats.Restarts++
 				//b.config.Locking = PESSIMISTIC
-				if b.stats.Restarts > 5 {
-					b.config.Locking = PESSIMISTIC
+				if b.stats.Restarts > 10 {
+				 	b.config.Locking = PESSIMISTIC
 				}
 				return errTransBlocked
 			}
@@ -287,10 +295,10 @@ func (b *basicFlatFile) commit() error {
 		default:
 			return newError(fmt.Errorf("unknown locking mode"))
 		}
-	}
 
-	if err = b.store(); err != nil {
-		return feedErr(err, 6)
+		if err = b.store(); err != nil {
+			return feedErr(err, 6)
+		}
 	}
 	return nil
 }
@@ -318,7 +326,6 @@ func (b *basicFlatFile) Stats() Stats {
 // runs a ACID transaction
 func (b *basicFlatFile) Transaction(f func(Trx) error) error {
 	var err error
-
 	err = b.runTransaction(f)
 	if err != nil {
 		if err == errTransBlocked {
@@ -369,7 +376,7 @@ func (b *basicFlatFile) runTransaction(f func(Trx) error) error {
 		return b.rollback(err)
 	}
 	//commit
-	return feedErr(b.commit(), 4)
+	return b.commit()
 }
 
 func (b *basicFlatFile) nowaitlock() error {
@@ -383,7 +390,7 @@ func (b *basicFlatFile) nowaitlock() error {
 	default:
 		return ErrTransTimeout
 	}
-	return nil
+	//return nil
 }
 
 func (b *basicFlatFile) lock() error {
@@ -400,7 +407,7 @@ func (b *basicFlatFile) lock() error {
 		b.stats.Waited = b.stats.Waited + time.Since(start)
 		return ErrTransTimeout
 	}
-	return nil
+	//return nil
 }
 
 func (b *basicFlatFile) unlock() (err error) {
@@ -410,12 +417,13 @@ func (b *basicFlatFile) unlock() (err error) {
 
 	select {
 	case <-b.dbLock:
+		b.haveLock = false
 		return nil
 	default:
 		return newError(fmt.Errorf("unlocking and not having lock"))
 	}
 
-	return nil
+	//return nil
 
 }
 

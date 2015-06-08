@@ -13,8 +13,11 @@ type Connector interface {
 type Session interface {
 	// Runs provided function inside ACID transaction
 	Transaction(func(Trx) error) error
+	// Config returns configuration of session 
 	Config() Config
+	// SetConfig sets configuration for session 
 	SetConfig(Config) error
+	// Stats returns session statistics
 	Stats() Stats
 }
 

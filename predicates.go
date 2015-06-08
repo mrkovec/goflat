@@ -70,7 +70,7 @@ func ValueTerm(v interface{}) *Term {
 	default:
 		return &Term{}
 	}
-	return nil
+	//return nil
 }
 
 
