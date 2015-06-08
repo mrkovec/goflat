@@ -279,10 +279,10 @@ func (b *basicFlatFile) commit() error {
 			}
 			if err = b.nowaitlock(); err != nil {
 				b.stats.Restarts++
-				//b.config.Locking = PESSIMISTIC
-				if b.stats.Restarts > 10 {
+				b.config.Locking = PESSIMISTIC
+				/*if b.stats.Restarts > 10 {
 				 	b.config.Locking = PESSIMISTIC
-				}
+				}*/
 				return errTransBlocked
 			}
 		case NOWAIT:
