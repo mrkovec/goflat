@@ -73,8 +73,4 @@ data, err := tr.Select(myStatement2).All()
 //update uses only Where condition
 nUpdated, err := tr.Update(myStatement2).Set(goflat.Set{"name": "Bill"})
 ```
-Some benchmarks on database with 10.000 sets (2,01MiB file) and i5-4590 4cores@3.3GHz, win8 64bit: 
-A: 300 consecutive DML single `Set` statements (insert one `Set` / update one `Set` etc)
-B: 300 parallel single `Set` DML statements executed in the span of one second (`runtime.GOMAXPROCS(runtime.NumCPU())`)
-
 More examples are on GoDoc or in test/benchmark files.
